@@ -1,4 +1,3 @@
-// resources/js/Pages/Admin/Settings/Tabs/GeneralTab.jsx
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
@@ -7,26 +6,33 @@ export default function GeneralTab({ data, setData, errors, settings }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* --- SITE THEME SETTING --- */}
+            {/* --- SITE THEME & LAYOUT SETTINGS --- */}
             <div className="col-span-1 md:col-span-2 p-4 bg-gray-50 border rounded-lg">
-                <InputLabel htmlFor="site_theme" value="Active Site Theme" className="text-lg font-bold text-indigo-700" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <InputLabel htmlFor="site_theme" value="Active Site Theme & Layout" className="text-lg font-bold text-indigo-700" />
+                
+                <div className="grid grid-cols-1 gap-4 mt-4">
+                    {/* UNIFIED THEME SETTING */}
                     <div>
+                        <InputLabel htmlFor="site_theme" value="Global Site Theme (Navbar, Footer & Homepage)" className="text-sm font-semibold" />
                         <select
                             id="site_theme"
-                            className="block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                            className="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm max-w-md"
                             value={data.site_theme || 'general'}
                             onChange={(e) => setData('site_theme', e.target.value)}
                         >
                             <option value="general">General Store (Default)</option>
                             <option value="book">Book Selling</option>
-                            <option value="food">Food Selling</option>
+                            <option value="food">Food & Grocery</option>
+                            <option value="gadget">Tech & Gadgets</option>
+                            <option value="digital">Digital Products</option>
                         </select>
-                        <p className="text-xs text-gray-500 mt-1">This will completely change the frontend Layout, Navbar, and Footer.</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                            This single setting synchronizes the structural design of the homepage as well as the global Navbar and Footer wrapper.
+                        </p>
                     </div>
 
-                    {/* NEW: Color picker for the dynamic CSS theme color */}
-                    <div>
+                    {/* Primary Color Setting */}
+                    <div className="border-t pt-4 mt-2">
                         <InputLabel htmlFor="primary_color" value="Primary Theme Color" className="text-sm font-semibold" />
                         <div className="flex items-center gap-2 mt-1">
                             <input
@@ -38,7 +44,7 @@ export default function GeneralTab({ data, setData, errors, settings }) {
                             />
                             <TextInput 
                                 type="text"
-                                className="block w-full" 
+                                className="block w-full max-w-xs" 
                                 value={data.primary_color || '#2d5a27'} 
                                 onChange={(e) => setData('primary_color', e.target.value)} 
                                 placeholder="#2d5a27"
