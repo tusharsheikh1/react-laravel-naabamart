@@ -1,6 +1,6 @@
 // resources/js/Pages/Frontend/CheckoutSuccess.jsx
 import React, { useEffect, useRef } from 'react';
-import FrontendLayout from '@/Layouts/Frontend/Layout';
+import ThemeLayout from '@/Layouts/Frontend/ThemeLayout';
 import { Link, usePage } from '@inertiajs/react';
 import SEO from '@/Components/SEO';
 import useTranslation from '@/Hooks/useTranslation';
@@ -73,7 +73,7 @@ export default function CheckoutSuccess({ order }) {
     };
 
     return (
-        <FrontendLayout>
+        <ThemeLayout>
             <SEO title={__('Order Successful')} />
 
             {/* Main Container: Reduced padding for mobile */}
@@ -232,6 +232,6 @@ export default function CheckoutSuccess({ order }) {
 
                 </div>
             </div>
-        </FrontendLayout>
+        </ThemeLayout>
     );
 }

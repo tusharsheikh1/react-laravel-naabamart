@@ -1,5 +1,5 @@
 // resources/js/Pages/Frontend/Products/ShowBook.jsx
-import FrontendLayout from '@/Layouts/Frontend/Layout';
+import ThemeLayout from '@/Layouts/Frontend/ThemeLayout';
 import ProductCard from '@/Components/ProductCard';
 import { Link, router, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
@@ -307,7 +307,7 @@ export default function ShowBook({ product, relatedProducts }) {
     );
 
     return (
-        <FrontendLayout>
+        <ThemeLayout>
             <SEO 
                 title={seoTitle} 
                 description={product.short_description || product.description} 
@@ -935,6 +935,6 @@ export default function ShowBook({ product, relatedProducts }) {
                     )}
                 </div>
             </div>
-        </FrontendLayout>
+       </ThemeLayout>
     );
 }

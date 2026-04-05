@@ -38,7 +38,7 @@ export default function FoodFooter() {
                         <ul className="space-y-3 font-medium text-orange-100">
                             <li><Link href="/" className="hover:text-white transition-colors duration-200 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-white"></span> Home</Link></li>
                             <li><Link href={route('shop')} className="hover:text-white transition-colors duration-200 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-white"></span> Menu</Link></li>
-                            <li><Link href={route('categories.all')} className="hover:text-white transition-colors duration-200 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-white"></span> Categories</Link></li>
+                            <li><Link href={route('categories.index')} className="hover:text-white transition-colors duration-200 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-white"></span> Categories</Link></li>
                         </ul>
                     </div>
 

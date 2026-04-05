@@ -25,7 +25,7 @@ export default function BookFooter() {
                         <ul className="space-y-3">
                             <li><Link href="/" className="hover:text-white transition-colors duration-200">Home</Link></li>
                             <li><Link href={route('shop')} className="hover:text-white transition-colors duration-200">All Books</Link></li>
-                            <li><Link href={route('categories.all')} className="hover:text-white transition-colors duration-200">Collections</Link></li>
+                            <li><Link href={route('categories.index')} className="hover:text-white transition-colors duration-200">Collections</Link></li>
                         </ul>
                     </div>
 

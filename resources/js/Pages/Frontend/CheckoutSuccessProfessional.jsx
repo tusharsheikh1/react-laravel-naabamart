@@ -1,6 +1,6 @@
 // resources/js/Pages/Frontend/CheckoutSuccessProfessional.jsx
 import React, { useEffect, useState, useRef } from 'react';
-import FrontendLayout from '@/Layouts/Frontend/Layout';
+import ThemeLayout from '@/Layouts/Frontend/ThemeLayout';
 import { Link, usePage } from '@inertiajs/react';
 import SEO from '@/Components/SEO';
 import useTranslation from '@/Hooks/useTranslation';
@@ -74,7 +74,7 @@ export default function CheckoutSuccessProfessional({ order }) {
     };
 
     return (
-        <FrontendLayout>
+       <ThemeLayout>
             <SEO title={__('Order Successful')} />
 
             <div 
@@ -192,6 +192,6 @@ export default function CheckoutSuccessProfessional({ order }) {
                     </div>
                 </div>
             </div>
-        </FrontendLayout>
+      </ThemeLayout>
     );
 }

@@ -43,7 +43,7 @@ export default function BookNavbar() {
                     <nav className="hidden md:flex space-x-8">
                         <Link href="/" className="text-amber-900 hover:text-amber-700 font-medium tracking-wide transition-colors">Home</Link>
                         <Link href={route('shop')} className="text-amber-900 hover:text-amber-700 font-medium tracking-wide transition-colors">Library</Link>
-                        <Link href={route('categories.all')} className="text-amber-900 hover:text-amber-700 font-medium tracking-wide transition-colors">Categories</Link>
+                        <Link href={route('categories.index')} className="text-amber-900 hover:text-amber-700 font-medium tracking-wide transition-colors">Categories</Link>
                     </nav>
 
                     {/* Right: Cart & Actions */}
@@ -73,7 +73,7 @@ export default function BookNavbar() {
                     <div className="px-4 pt-2 pb-4 space-y-1">
                         <Link href="/" className="block px-3 py-2 rounded-md text-base font-medium text-amber-900 hover:bg-[#eadecc] transition">Home</Link>
                         <Link href={route('shop')} className="block px-3 py-2 rounded-md text-base font-medium text-amber-900 hover:bg-[#eadecc] transition">Library</Link>
-                        <Link href={route('categories.all')} className="block px-3 py-2 rounded-md text-base font-medium text-amber-900 hover:bg-[#eadecc] transition">Categories</Link>
+                        <Link href={route('categories.index')} className="block px-3 py-2 rounded-md text-base font-medium text-amber-900 hover:bg-[#eadecc] transition">Categories</Link>
                     </div>
                 </div>
             )}

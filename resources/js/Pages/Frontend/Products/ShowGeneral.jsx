@@ -2,7 +2,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef, memo } from 'react';
 import axios from 'axios';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import FrontendLayout from '@/Layouts/Frontend/Layout';
+import ThemeLayout from '@/Layouts/Frontend/ThemeLayout';
 import ProductCard from '@/Components/ProductCard';
 import ProductEngagementTracker from '@/Components/ProductEngagementTracker';
 import Toast from '@/Components/Toast';
@@ -267,7 +267,7 @@ export default function ShowGeneral({ product, relatedProducts = [] }) {
   const isBusy = processing || buyNowProcessing;
 
   return (
-    <FrontendLayout>
+   <ThemeLayout>
       <Toast show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
       <ProductEngagementTracker productId={product.id} />
       
@@ -500,6 +500,6 @@ export default function ShowGeneral({ product, relatedProducts = [] }) {
         </section>
       )}
       
-    </FrontendLayout>
+   </ThemeLayout>
   );
 }

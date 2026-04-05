@@ -1,4 +1,4 @@
-import FrontendLayout from '@/Layouts/Frontend/Layout';
+import ThemeLayout from '@/Layouts/Frontend/ThemeLayout';
 import { Link } from '@inertiajs/react';
 import { useState } from 'react';
 import SEO from '@/Components/SEO'; // <-- Added SEO Component
@@ -20,7 +20,7 @@ export default function AllCategories({ categories }) {
     );
 
     return (
-        <FrontendLayout>
+        <ThemeLayout>
             {/* Using the Dynamic SEO Component */}
             <SEO title="All Categories" />
 
@@ -74,7 +74,7 @@ export default function AllCategories({ categories }) {
                     )}
                 </div>
             </div>
-        </FrontendLayout>
+        </ThemeLayout>
     );
 }
 

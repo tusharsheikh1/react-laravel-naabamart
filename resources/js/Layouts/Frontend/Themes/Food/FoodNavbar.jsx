@@ -43,7 +43,7 @@ export default function FoodNavbar() {
                     <nav className="hidden md:flex space-x-6 items-center">
                         <Link href="/" className="px-3 py-2 text-gray-800 hover:text-orange-600 font-bold transition-colors">Home</Link>
                         <Link href={route('shop')} className="px-3 py-2 text-gray-800 hover:text-orange-600 font-bold transition-colors">Menu</Link>
-                        <Link href={route('categories.all')} className="px-3 py-2 text-gray-800 hover:text-orange-600 font-bold transition-colors">Categories</Link>
+                        <Link href={route('categories.index')} className="px-3 py-2 text-gray-800 hover:text-orange-600 font-bold transition-colors">Categories</Link>
                     </nav>
 
                     {/* Right: Cart Actions */}
@@ -72,7 +72,7 @@ export default function FoodNavbar() {
                     <div className="px-4 pt-3 space-y-2">
                         <Link href="/" className="block px-4 py-3 rounded-xl text-base font-bold text-gray-800 bg-gray-50 hover:bg-orange-50 hover:text-orange-600 transition">Home</Link>
                         <Link href={route('shop')} className="block px-4 py-3 rounded-xl text-base font-bold text-gray-800 bg-gray-50 hover:bg-orange-50 hover:text-orange-600 transition">Menu</Link>
-                        <Link href={route('categories.all')} className="block px-4 py-3 rounded-xl text-base font-bold text-gray-800 bg-gray-50 hover:bg-orange-50 hover:text-orange-600 transition">Categories</Link>
+                        <Link href={route('categories.index')} className="block px-4 py-3 rounded-xl text-base font-bold text-gray-800 bg-gray-50 hover:bg-orange-50 hover:text-orange-600 transition">Categories</Link>
                     </div>
                 </div>
             )}
