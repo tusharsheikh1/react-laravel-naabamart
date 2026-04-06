@@ -39,7 +39,8 @@ const ICONS = {
     size:         'M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4',
     shipping:     'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4',
     slider:       'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z',
-    landingPage:  'M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm2 0v3h12V6H6zm0 5v7h4v-7H6zm6 0v7h6v-7h-6z', // NEW: Added landing page icon
+    banner:       'M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z M4 10h16', // NEW: Added banner icon
+    landingPage:  'M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm2 0v3h12V6H6zm0 5v7h4v-7H6zm6 0v7h6v-7h-6z',
     users:        'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
     settings:     'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4',
     security:     'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z', 
@@ -426,8 +427,8 @@ export default function Sidebar() {
     const isAttributesActive = ['/admin/colors', '/admin/sizes'].some(isActive);
     const isAnalyticsActive  = ['/admin/analytics'].some(isActive);
     
-    // UPDATED: Now includes landing pages so the dropdown stays open
-    const isCampaignActive   = ['/admin/sliders', '/admin/landing-pages'].some(isActive); 
+    // UPDATED: Now includes landing pages and banners so the dropdown stays open
+    const isCampaignActive   = ['/admin/sliders', '/admin/banners', '/admin/landing-pages'].some(isActive); 
     
     const isSystemActive     = ['/admin/shipping-methods', '/admin/users', '/admin/settings', '/admin/blacklists'].some(isActive);
     const isFinanceActive    = ['/admin/transactions', '/admin/accounting/profit-loss'].some(isActive);
@@ -576,7 +577,8 @@ export default function Sidebar() {
                             <SectionLabel>Marketing</SectionLabel>
                             <NavGroup menuKey="campaign" iconName="campaign" label="Campaign" isAnyChildActive={isCampaignActive} {...groupProps}>
                                 <ChildLink href={route('admin.sliders.index')} iconName="slider" label="Sliders" path="/admin/sliders" isActive={isActive} />
-                                {/* NEW: Added Landing Pages link */}
+                                {/* NEW: Added Banners link */}
+                                <ChildLink href={route('admin.banners.index')} iconName="banner" label="Banners" path="/admin/banners" isActive={isActive} />
                                 <ChildLink href="/admin/landing-pages" iconName="landingPage" label="Landing Pages" path="/admin/landing-pages" isActive={isActive} />
                             </NavGroup>
                         </>

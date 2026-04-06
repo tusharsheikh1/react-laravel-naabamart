@@ -43,6 +43,11 @@ export default function FeaturedCategories({ featuredCategories = [] }) {
 }
 
 function CategoryCard({ category }) {
+    const defaultImage = 'https://cdn-icons-png.freepik.com/256/9667/9667791.png?semt=ais_white_label';
+    
+    // Set initial source based on whether the DB has a record of an image
+    const imgSrc = category.image ? `/storage/${category.image}` : defaultImage;
+
     return (
         <Link
             href={route('shop', { category: category.id })}
@@ -54,22 +59,20 @@ function CategoryCard({ category }) {
             </span>
 
             <div className="flex items-center justify-center flex-shrink-0 w-9 h-9 md:w-12 md:h-12">
-                {category.image ? (
-                    <img
-                        src={`/storage/${category.image}`}
-                        alt="" 
-                        width="63"
-                        height="63"
-                        loading="lazy"
-                        className="w-9 h-9 md:w-12 md:h-12 object-contain group-hover:scale-110 transition-transform duration-300"
-                    />
-                ) : (
-                    <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 19.5h18M3.75 4.5h16.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V5.25a.75.75 0 01.75-.75z" />
-                        </svg>
-                    </div>
-                )}
+                <img
+                    src={imgSrc}
+                    alt={category.name || "Category"} 
+                    width="63"
+                    height="63"
+                    loading="lazy"
+                    className="w-9 h-9 md:w-12 md:h-12 object-contain group-hover:scale-110 transition-transform duration-300"
+                    onError={(e) => {
+                        // If the uploaded image is physically missing/broken, swap to default
+                        if (e.target.src !== defaultImage) {
+                            e.target.src = defaultImage;
+                        }
+                    }}
+                />
             </div>
         </Link>
     );

@@ -60,13 +60,26 @@ export default function ProductCard({ product, priority = false }) {
         </svg>
     );
 
-    const ProductImage = ({ className = "" }) => (
-        product.thumbnail ? (
-            <img src={`/storage/${product.thumbnail}`} alt={product.name} loading={priority ? "eager" : "lazy"} fetchpriority={priority ? "high" : "auto"} className={`w-full h-full object-cover ${className}`} />
-        ) : (
-            <div className={`w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-xs ${className}`}>NO IMAGE</div>
-        )
-    );
+    const ProductImage = ({ className = "" }) => {
+        const defaultImage = 'https://bms.com.tr/wp-content/uploads/2025/06/A-Chair_auditorium_thumb_01.webp';
+        const imgSrc = product.thumbnail ? `/storage/${product.thumbnail}` : defaultImage;
+
+        return (
+            <img 
+                src={imgSrc} 
+                alt={product.name || 'Product'} 
+                loading={priority ? "eager" : "lazy"} 
+                fetchpriority={priority ? "high" : "auto"} 
+                className={`w-full h-full object-cover ${className}`}
+                onError={(e) => {
+                    // If the uploaded image is broken, swap to default
+                    if (e.target.src !== defaultImage) {
+                        e.target.src = defaultImage;
+                    }
+                }}
+            />
+        );
+    };
 
     // ==============================================
     // THEME 1: BOOK (Focus on Author & Publication)

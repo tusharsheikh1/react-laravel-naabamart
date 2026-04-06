@@ -3,23 +3,24 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Slider;
+use App\Models\Banner;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 
-class SliderController extends Controller
+class BannerController extends Controller
 {
     // ─── Index ────────────────────────────────────────────────────────────────
 
     public function index()
     {
-        $sliders = Slider::orderBy('group')->orderBy('order')->orderBy('id')->get();
-        $grouped = $sliders->groupBy('group');
+        // Group banners in PHP so the frontend can render tabs/sections
+        $banners = Banner::orderBy('group')->orderBy('order')->orderBy('id')->get();
+        $grouped = $banners->groupBy('group');
 
-        return Inertia::render('Admin/Sliders/Index', [
+        return Inertia::render('Admin/Banners/Index', [
             'grouped'        => $grouped,
-            'groupCatalogue' => Slider::groupCatalogue(),
+            'groupCatalogue' => Banner::groupCatalogue(),
         ]);
     }
 
@@ -27,8 +28,8 @@ class SliderController extends Controller
 
     public function create()
     {
-        return Inertia::render('Admin/Sliders/Create', [
-            'groupCatalogue' => Slider::groupCatalogue(),
+        return Inertia::render('Admin/Banners/Create', [
+            'groupCatalogue' => Banner::groupCatalogue(),
         ]);
     }
 
@@ -37,7 +38,7 @@ class SliderController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'group'        => 'required|string|in:' . implode(',', array_keys(Slider::groupCatalogue())),
+            'group'        => 'required|string|in:' . implode(',', array_keys(Banner::groupCatalogue())),
             'title'        => 'nullable|string|max:255',
             'subtitle'     => 'nullable|string|max:255',
             'image'        => 'required|image|mimes:jpeg,png,jpg,webp|max:4096',
@@ -49,35 +50,35 @@ class SliderController extends Controller
             'status'       => 'nullable|boolean',
         ]);
 
-        $validated['image'] = $request->file('image')->store('sliders', 'public');
+        $validated['image'] = $request->file('image')->store('banners', 'public');
 
         if ($request->hasFile('mobile_image')) {
-            $validated['mobile_image'] = $request->file('mobile_image')->store('sliders', 'public');
+            $validated['mobile_image'] = $request->file('mobile_image')->store('banners', 'public');
         }
 
         $validated['status'] = $request->boolean('status', true);
 
-        Slider::create($validated);
+        Banner::create($validated);
 
-        return redirect()->route('admin.sliders.index')->with('success', 'Slider created successfully.');
+        return redirect()->route('admin.banners.index')->with('success', 'Banner created successfully.');
     }
 
     // ─── Edit ─────────────────────────────────────────────────────────────────
 
-    public function edit(Slider $slider)
+    public function edit(Banner $banner)
     {
-        return Inertia::render('Admin/Sliders/Edit', [
-            'slider'         => $slider,
-            'groupCatalogue' => Slider::groupCatalogue(),
+        return Inertia::render('Admin/Banners/Edit', [
+            'banner'         => $banner,
+            'groupCatalogue' => Banner::groupCatalogue(),
         ]);
     }
 
     // ─── Update ───────────────────────────────────────────────────────────────
 
-    public function update(Request $request, Slider $slider)
+    public function update(Request $request, Banner $banner)
     {
         $validated = $request->validate([
-            'group'        => 'required|string|in:' . implode(',', array_keys(Slider::groupCatalogue())),
+            'group'        => 'required|string|in:' . implode(',', array_keys(Banner::groupCatalogue())),
             'title'        => 'nullable|string|max:255',
             'subtitle'     => 'nullable|string|max:255',
             'image'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:4096',
@@ -90,47 +91,47 @@ class SliderController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            if ($slider->image) {
-                Storage::disk('public')->delete($slider->image);
+            if ($banner->image) {
+                Storage::disk('public')->delete($banner->image);
             }
-            $validated['image'] = $request->file('image')->store('sliders', 'public');
+            $validated['image'] = $request->file('image')->store('banners', 'public');
         }
 
         if ($request->hasFile('mobile_image')) {
-            if ($slider->mobile_image) {
-                Storage::disk('public')->delete($slider->mobile_image);
+            if ($banner->mobile_image) {
+                Storage::disk('public')->delete($banner->mobile_image);
             }
-            $validated['mobile_image'] = $request->file('mobile_image')->store('sliders', 'public');
+            $validated['mobile_image'] = $request->file('mobile_image')->store('banners', 'public');
         }
 
         // Allow removing the mobile image
         if ($request->input('remove_mobile_image') === '1') {
-            if ($slider->mobile_image) {
-                Storage::disk('public')->delete($slider->mobile_image);
+            if ($banner->mobile_image) {
+                Storage::disk('public')->delete($banner->mobile_image);
             }
             $validated['mobile_image'] = null;
         }
 
         $validated['status'] = $request->boolean('status', true);
 
-        $slider->update($validated);
+        $banner->update($validated);
 
-        return redirect()->route('admin.sliders.index')->with('success', 'Slider updated successfully.');
+        return redirect()->route('admin.banners.index')->with('success', 'Banner updated successfully.');
     }
 
     // ─── Destroy ──────────────────────────────────────────────────────────────
 
-    public function destroy(Slider $slider)
+    public function destroy(Banner $banner)
     {
-        if ($slider->image) {
-            Storage::disk('public')->delete($slider->image);
+        if ($banner->image) {
+            Storage::disk('public')->delete($banner->image);
         }
-        if ($slider->mobile_image) {
-            Storage::disk('public')->delete($slider->mobile_image);
+        if ($banner->mobile_image) {
+            Storage::disk('public')->delete($banner->mobile_image);
         }
 
-        $slider->delete();
+        $banner->delete();
 
-        return redirect()->route('admin.sliders.index')->with('success', 'Slider deleted successfully.');
+        return redirect()->route('admin.banners.index')->with('success', 'Banner deleted successfully.');
     }
 }

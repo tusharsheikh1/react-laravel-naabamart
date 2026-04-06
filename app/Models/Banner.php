@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Slider extends Model
+class Banner extends Model
 {
     protected $fillable = [
         'group', 'title', 'subtitle', 'image', 'mobile_image', 'link', 
@@ -28,11 +28,11 @@ class Slider extends Model
     public static function groupCatalogue(): array
     {
         return [
-            'slider_1' => 'Slider 1 (Hero)',
-            'slider_2' => 'Slider 2',
-            'slider_3' => 'Slider 3',
-            'slider_4' => 'Slider 4',
-            'slider_5' => 'Slider 5',
+            'banner_1' => 'Banner 1',
+            'banner_2' => 'Banner 2',
+            'banner_3' => 'Banner 3',
+            'banner_4' => 'Banner 4',
+            'banner_5' => 'Banner 5',
         ];
     }
 }

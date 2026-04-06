@@ -7,7 +7,7 @@ export default function Create({ groupCatalogue }) {
     const params = new URLSearchParams(url.split('?')[1] ?? '');
     const defaultGroup = params.get('group') && groupCatalogue[params.get('group')]
         ? params.get('group')
-        : 'slider_1';
+        : 'banner_1';
 
     const { data, setData, post, processing, errors } = useForm({
         group:        defaultGroup,
@@ -33,15 +33,15 @@ export default function Create({ groupCatalogue }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('admin.sliders.store'), { forceFormData: true });
+        post(route('admin.banners.store'), { forceFormData: true });
     };
 
     return (
         <AdminLayout>
             <div className="p-6 max-w-2xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Add New Slider</h2>
-                    <Link href={route('admin.sliders.index')} className="text-sm text-gray-500 hover:text-gray-700 transition">
+                    <h2 className="text-2xl font-bold text-gray-800">Add New Banner</h2>
+                    <Link href={route('admin.banners.index')} className="text-sm text-gray-500 hover:text-gray-700 transition">
                         ← Back
                     </Link>
                 </div>
@@ -64,7 +64,7 @@ export default function Create({ groupCatalogue }) {
                         </select>
                         {errors.group && <p className="mt-1 text-xs text-red-500">{errors.group}</p>}
                         <p className="mt-1 text-xs text-gray-400">
-                            Sliders are carousels — all active items cycle automatically.
+                            Banners are static — only the first active item in a group is shown.
                         </p>
                     </div>
 
@@ -98,7 +98,7 @@ export default function Create({ groupCatalogue }) {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Desktop Image <span className="text-red-500">*</span>
-                            <span className="ml-2 text-xs text-gray-400 font-normal">Recommended: 1200×480px</span>
+                            <span className="ml-2 text-xs text-gray-400 font-normal">Recommended: 500×600px</span>
                         </label>
                         <input
                             type="file"
@@ -107,7 +107,7 @@ export default function Create({ groupCatalogue }) {
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded file:border-0 file:bg-indigo-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-indigo-600 hover:file:bg-indigo-100"
                         />
                         {desktopPreview && (
-                            <img src={desktopPreview} alt="Preview" className="mt-2 h-24 w-40 rounded-md object-cover border border-gray-200" />
+                            <img src={desktopPreview} alt="Preview" className="mt-2 h-32 w-28 rounded-md object-cover border border-gray-200" />
                         )}
                         {errors.image && <p className="mt-1 text-xs text-red-500">{errors.image}</p>}
                     </div>
@@ -189,7 +189,7 @@ export default function Create({ groupCatalogue }) {
                             value={data.order}
                             onChange={e => setData('order', e.target.value)}
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-                            placeholder="e.g. 1"
+                            placeholder="e.g. 1 (Lowest number shows first)"
                         />
                         {errors.order && <p className="mt-1 text-xs text-red-500">{errors.order}</p>}
                     </div>
@@ -208,7 +208,7 @@ export default function Create({ groupCatalogue }) {
 
                     {/* Submit */}
                     <div className="flex justify-end gap-3 pt-2">
-                        <Link href={route('admin.sliders.index')} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                        <Link href={route('admin.banners.index')} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
                             Cancel
                         </Link>
                         <button
@@ -216,7 +216,7 @@ export default function Create({ groupCatalogue }) {
                             disabled={processing}
                             className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition disabled:opacity-60"
                         >
-                            {processing ? 'Creating...' : 'Create Slider'}
+                            {processing ? 'Creating...' : 'Create Banner'}
                         </button>
                     </div>
                 </form>

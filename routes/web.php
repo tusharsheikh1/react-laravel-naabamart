@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\OrderTimelineController;
 use App\Http\Controllers\Admin\ManualOrderController;
 use App\Http\Controllers\Admin\ShippingMethodController;
 use App\Http\Controllers\Admin\SliderController;
+use App\Http\Controllers\Admin\BannerController; // Added Banner Controller
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\ProductBehaviorController;
@@ -256,6 +257,7 @@ Route::middleware(['auth', 'verified', 'admin_or_staff'])
 
         Route::resource('shipping-methods', ShippingMethodController::class);
         Route::resource('sliders', SliderController::class);
+        Route::resource('banners', BannerController::class); // Added Banners Resource Route
 
         Route::get('accounting/profit-loss', [ProfitLossController::class, 'index'])->name('accounting.profit-loss');
         Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export');

@@ -13,7 +13,7 @@ class SettingController extends Controller
 {
     /**
      * Display the settings index page.
-     * * @return \Inertia\Response
+     * @return \Inertia\Response
      */
     public function index()
     {
@@ -27,7 +27,7 @@ class SettingController extends Controller
 
     /**
      * Update the system settings.
-     * * @param Request $request
+     * @param Request $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request)
@@ -42,6 +42,13 @@ class SettingController extends Controller
         ];
 
         foreach ($data as $key => $value) {
+            
+            // FIX: JavaScript FormData converts `null` values into a literal string "null".
+            // We must convert it back to actual null so the file-override logic works.
+            if ($value === 'null') {
+                $value = null;
+            }
+
             // Handle file uploads (e.g., logo, favicon, meta image)
             if ($request->hasFile($key)) {
                 $file = $request->file($key);
@@ -63,7 +70,7 @@ class SettingController extends Controller
                     continue; 
                 }
 
-                // Ignore nulls for specific file fields if they weren't updated in this request
+                // Protect existing files from being overwritten by empty nulls 
                 if ($value !== null || !in_array($key, ['site_logo', 'site_favicon', 'seo_meta_image'])) {
                     Setting::updateOrCreate(
                         ['key' => $key],
@@ -81,7 +88,7 @@ class SettingController extends Controller
 
     /**
      * Determine the group for a given setting key.
-     * * @param string $key
+     * @param string $key
      * @return string
      */
     private function getGroup($key)
@@ -90,7 +97,10 @@ class SettingController extends Controller
         if (str_starts_with($key, 'seo_')) return 'seo';
         if (str_starts_with($key, 'social_')) return 'social';
         if (str_starts_with($key, 'floating_')) return 'contact';
-        if (str_starts_with($key, 'script_')) return 'scripts';
+        
+        // FIX: Account for non-prefixed tracking toggles
+        if (str_starts_with($key, 'script_') || in_array($key, ['enable_google_analytics', 'enable_meta_tracking'])) return 'scripts';
+        
         if (str_starts_with($key, 'courier_')) return 'courier';
         if (str_starts_with($key, 'sms_')) return 'sms'; 
         

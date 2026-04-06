@@ -5,11 +5,13 @@ import HeroSlider from '@/Components/HeroSlider';
 import ProductCard from '@/Components/ProductCard';
 import TopSellingCard from '@/Components/TopSellingCard';
 import FeaturedCategories from '@/Components/FeaturedCategories';
+import StaticBanner from '@/Components/Staticbanner'; // <-- 1. IMPORT STATIC BANNER
 
 // Import features
 import { HOME_STYLES, LazyCard, SKU_PRODUCT, SKU_TOP, AllProducts } from './HomeFeatures';
 
-export default function GeneralHome({ sliders = [], topSelling = [], allProducts = [], featuredCategories = [], homeProductCategories = [] }) {
+// 2. Add `banners = []` to the destructured props
+export default function GeneralHome({ sliders = [], banners = [], topSelling = [], allProducts = [], featuredCategories = [], homeProductCategories = [] }) {
   const { global_settings } = usePage().props;
 
   return (
@@ -22,16 +24,21 @@ export default function GeneralHome({ sliders = [], topSelling = [], allProducts
         {sliders[0]?.image && <link rel="preload" as="image" href={sliders[0].image} fetchpriority="high" />}
       </Head>
       
-      {/* Corrected: Injecting only the animation styles without the duplicate :root color */}
       <style dangerouslySetInnerHTML={{ __html: HOME_STYLES }} />
 
       <HeroSlider sliders={sliders} />
 
       <div className="pt-2 md:pt-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* 3. Render Banner 1 just below the Hero/Featured Categories */}
+        <div className="mt-6 mb-10">
+            <StaticBanner banners={banners.filter(b => b.group === 'banner_1')} />
+        </div>
+
         <FeaturedCategories featuredCategories={featuredCategories} />
 
         {topSelling.length > 0 && (
-          <section className="mb-20 mt-8">
+          <section className="mb-14 mt-8">
             <h2 className="text-2xl font-bold text-gray-800 text-center mb-6">Top Selling Products</h2>
             <div className="grid grid-cols-2 gap-3 md:gap-6 lg:grid-cols-4">
               {topSelling.slice(0, 4).map((p, i) => (
@@ -43,9 +50,14 @@ export default function GeneralHome({ sliders = [], topSelling = [], allProducts
           </section>
         )}
 
+        {/* 4. Render Banner 2 inside the flow */}
+        <div className="mb-14">
+            <StaticBanner banners={banners.filter(b => b.group === 'banner_2')} />
+        </div>
+
         {homeProductCategories.map((cat) => (
           cat.products?.length > 0 && (
-             <section key={cat.id} className="mb-20">
+             <section key={cat.id} className="mb-16">
                <div className="flex items-center justify-between mb-6">
                  <div>
                    <h2 className="text-xl font-bold text-gray-900">{cat.name}</h2>

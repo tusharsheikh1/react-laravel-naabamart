@@ -4,12 +4,15 @@ import SEO from '@/Components/SEO';
 import HeroSlider from '@/Components/HeroSlider';
 import ProductCard from '@/Components/ProductCard';
 import FeaturedCategories from '@/Components/FeaturedCategories';
+import StaticBanner from '@/Components/Staticbanner'; // <-- 1. IMPORT STATIC BANNER
 
 // Import shared performance features
 import { HOME_STYLES, LazyCard, SKU_PRODUCT, AllProducts } from './HomeFeatures';
 
+// 2. Add `banners = []` to props
 export default function BookHome({ 
   sliders = [], 
+  banners = [], 
   topSelling = [], 
   featuredCategories = [], 
   homeProductCategories = [], 
@@ -18,7 +21,7 @@ export default function BookHome({
   const { global_settings } = usePage().props;
 
   return (
-    <div className="bg-[#FAF9F6] font-sans"> {/* Warm off-white paper color */}
+    <div className="bg-[#FAF9F6] font-sans">
       <SEO 
           title={global_settings?.seo_homepage_title || "Premium Bookstore"} 
           description={global_settings?.seo_meta_description || "Discover your next great read."} 
@@ -30,14 +33,18 @@ export default function BookHome({
         )}
       </Head>
 
-      {/* Inject animation styles without the duplicate :root color */}
       <style dangerouslySetInnerHTML={{ __html: HOME_STYLES }} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
         {/* Hero Section */}
-        <div className="rounded-2xl overflow-hidden shadow-lg mb-12">
+        <div className="rounded-2xl overflow-hidden shadow-lg mb-10">
             <HeroSlider sliders={sliders} />
+        </div>
+
+        {/* 3. Render Banner 1 */}
+        <div className="mb-12">
+            <StaticBanner banners={banners.filter(b => b.group === 'banner_1')} />
         </div>
 
         {/* Bestselling Books */}
@@ -67,6 +74,11 @@ export default function BookHome({
                 <FeaturedCategories featuredCategories={featuredCategories} />
             </section>
         )}
+
+        {/* 4. Render Banner 2 */}
+        <div className="mb-12">
+            <StaticBanner banners={banners.filter(b => b.group === 'banner_2')} />
+        </div>
 
         {/* Bookshelves (Categories) */}
         {homeProductCategories.map((cat) => (

@@ -102,7 +102,7 @@ export default function Index({ settings }) {
         sms_bulksmsbd_api_key: settings.sms_bulksmsbd_api_key || '',
         sms_bulksmsbd_sender_id: settings.sms_bulksmsbd_sender_id || '',
 
-        // SMS Toggles
+        // SMS Toggles (Safeguarding defaults based on explicit string checks)
         sms_notify_order_placed: settings.sms_notify_order_placed !== '0',
         sms_notify_order_shipped: settings.sms_notify_order_shipped !== '0',
         sms_notify_order_delivered: settings.sms_notify_order_delivered !== '0',
@@ -120,16 +120,18 @@ export default function Index({ settings }) {
     const submit = (e) => {
         e.preventDefault();
 
-        transform((data) => ({
-            ...data,
-            sms_notify_order_placed: data.sms_notify_order_placed ? '1' : '0',
-            sms_notify_order_shipped: data.sms_notify_order_shipped ? '1' : '0',
-            sms_notify_order_delivered: data.sms_notify_order_delivered ? '1' : '0',
-            sms_notify_order_cancelled: data.sms_notify_order_cancelled ? '1' : '0',
-            sms_notify_order_dispatched: data.sms_notify_order_dispatched ? '1' : '0',
+        transform((currentData) => ({
+            ...currentData,
+            sms_notify_order_placed: currentData.sms_notify_order_placed ? '1' : '0',
+            sms_notify_order_shipped: currentData.sms_notify_order_shipped ? '1' : '0',
+            sms_notify_order_delivered: currentData.sms_notify_order_delivered ? '1' : '0',
+            sms_notify_order_cancelled: currentData.sms_notify_order_cancelled ? '1' : '0',
+            sms_notify_order_dispatched: currentData.sms_notify_order_dispatched ? '1' : '0',
         }));
 
-        post(route('admin.settings.update'), { preserveScroll: true });
+        post(route('admin.settings.update'), { 
+            preserveScroll: true 
+        });
     };
 
     const tabProps = { data, setData, errors, settings };
