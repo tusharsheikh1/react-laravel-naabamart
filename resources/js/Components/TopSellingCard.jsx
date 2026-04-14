@@ -4,6 +4,8 @@ import { useState } from 'react';
 export default function TopSellingCard({ product, rank }) {
     const [isAdded, setIsAdded] = useState(false);
     
+    const fallbackImage = "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8cHJvZHVjdHxlbnwwfHwwfHx8MA%3D%3D";
+    
     const price = parseFloat(product.price);
     let finalPrice = price;
     let hasDiscount = false;
@@ -81,7 +83,7 @@ export default function TopSellingCard({ product, rank }) {
 
     return (
         <>
-            {/* ── MOBILE CARD (Remains intact to preserve your preferred mobile layout) ── */}
+            {/* ── MOBILE CARD ── */}
             <Link
                 href={route('product.show', product.slug)}
                 className="md:hidden group flex flex-col h-full w-full cursor-pointer relative bg-white pb-1"
@@ -101,19 +103,17 @@ export default function TopSellingCard({ product, rank }) {
                         }}
                     />
 
-                    {product.thumbnail ? (
-                        <img
-                            src={`/storage/${product.thumbnail}`}
-                            alt={product.name}
-                            loading="lazy"
-                            className="w-full h-full object-contain transition-all duration-700 ease-out group-hover:scale-[1.06]"
-                            style={{ mixBlendMode: 'multiply' }}
-                        />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm font-medium tracking-widest uppercase">
-                            No Image
-                        </div>
-                    )}
+                    <img
+                        src={product.thumbnail ? `/storage/${product.thumbnail}` : fallbackImage}
+                        alt={product.name}
+                        loading="lazy"
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = fallbackImage;
+                        }}
+                        className="w-full h-full object-contain transition-all duration-700 ease-out group-hover:scale-[1.06]"
+                        style={{ mixBlendMode: 'multiply' }}
+                    />
 
                     <div
                         className="absolute top-2 right-2 z-10 flex items-center gap-1 text-white text-[10px] font-semibold px-2.5 py-1 rounded-md shadow"
@@ -194,7 +194,7 @@ export default function TopSellingCard({ product, rank }) {
                 </div>
             </Link>
 
-            {/* ── DESKTOP CARD (Redesigned for best practices) ── */}
+            {/* ── DESKTOP CARD ── */}
             <div
                 className="hidden md:flex group relative flex-row bg-white rounded-2xl overflow-hidden w-full h-full border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 ease-out"
                 style={{ fontFamily: "'DM Sans', 'Hind Siliguri', sans-serif" }}
@@ -220,16 +220,16 @@ export default function TopSellingCard({ product, rank }) {
                         }}
                     />
                     
-                    {product.thumbnail ? (
-                        <img
-                            src={`/storage/${product.thumbnail}`}
-                            alt={product.name}
-                            loading="lazy"
-                            className="w-full h-full object-contain p-4 mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out"
-                        />
-                    ) : (
-                        <span className="text-gray-300 text-xs font-medium uppercase tracking-widest">No Image</span>
-                    )}
+                    <img
+                        src={product.thumbnail ? `/storage/${product.thumbnail}` : fallbackImage}
+                        alt={product.name}
+                        loading="lazy"
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = fallbackImage;
+                        }}
+                        className="w-full h-full object-contain p-4 mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out"
+                    />
 
                     {/* Rank Indicator */}
                     {rank && (

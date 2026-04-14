@@ -1,42 +1,65 @@
+import { useRef } from 'react';
 import { Link } from '@inertiajs/react';
 
 export default function FeaturedCategories({ featuredCategories = [] }) {
+    const scrollContainerRef = useRef(null);
+
     if (!featuredCategories || featuredCategories.length === 0) return null;
 
-    const desktopCategories = featuredCategories.slice(0, 10);
-    const mobileCategories  = featuredCategories.slice(0, 4);
+    const scroll = (direction) => {
+        if (scrollContainerRef.current) {
+            const scrollAmount = 400; // Adjust scroll distance
+            scrollContainerRef.current.scrollBy({ 
+                left: direction === 'left' ? -scrollAmount : scrollAmount, 
+                behavior: 'smooth' 
+            });
+        }
+    };
 
     return (
         <section 
-            className="mb-6 px-4 md:px-6"
+            className="mb-6 px-4 md:px-6 py-6 bg-white rounded-lg shadow-sm border border-gray-100"
             style={{ fontFamily: "'DM Sans', 'Hind Siliguri', sans-serif" }}
         >
-            <div className="flex items-center justify-between mb-3">
-                <div>
-                    <h2 className="text-base md:text-lg font-bold text-gray-900">Featured Categories</h2>
-                    <div className="mt-1 h-[3px] w-8 bg-[#2d5a27] rounded-full" />
-                </div>
-                <Link
-                    href={route('categories.index')}
-                    className="flex items-center gap-1 text-xs font-semibold text-[#2d5a27] hover:text-[#1a3a1a] transition-colors underline underline-offset-2"
+            <div className="mb-6">
+                <h2 className="text-xl md:text-2xl font-medium text-gray-900">
+                    Popular Categories
+                </h2>
+            </div>
+
+            <div className="relative group">
+                {/* Left Navigation Button */}
+                <button 
+                    onClick={() => scroll('left')}
+                    className="absolute -left-4 top-[40px] z-10 w-10 h-10 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.1)] flex items-center justify-center text-[#00a676] hover:bg-gray-50 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                    aria-label="Scroll left"
                 >
-                    SEE ALL
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 pr-0.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
-                </Link>
-            </div>
+                </button>
 
-            <div className="grid grid-cols-2 gap-2 md:hidden">
-                {mobileCategories.map((category) => (
-                    <CategoryCard key={category.id} category={category} />
-                ))}
-            </div>
+                {/* Scrollable Container */}
+                <div 
+                    ref={scrollContainerRef}
+                    className="flex overflow-x-auto gap-4 md:gap-8 snap-x px-2 pb-4 [&::-webkit-scrollbar]:hidden"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                    {featuredCategories.map((category) => (
+                        <CategoryCard key={category.id} category={category} />
+                    ))}
+                </div>
 
-            <div className="hidden md:grid md:grid-cols-5 gap-2">
-                {desktopCategories.map((category) => (
-                    <CategoryCard key={category.id} category={category} />
-                ))}
+                {/* Right Navigation Button */}
+                <button 
+                    onClick={() => scroll('right')}
+                    className="absolute -right-4 top-[40px] z-10 w-10 h-10 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.1)] flex items-center justify-center text-[#00a676] hover:bg-gray-50 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                    aria-label="Scroll right"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 pl-0.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                </button>
             </div>
         </section>
     );
@@ -44,36 +67,30 @@ export default function FeaturedCategories({ featuredCategories = [] }) {
 
 function CategoryCard({ category }) {
     const defaultImage = 'https://cdn-icons-png.freepik.com/256/9667/9667791.png?semt=ais_white_label';
-    
-    // Set initial source based on whether the DB has a record of an image
     const imgSrc = category.image ? `/storage/${category.image}` : defaultImage;
 
     return (
         <Link
             href={route('shop', { category: category.id })}
-            className="group flex flex-row items-center justify-between bg-white border border-gray-200 rounded-xl px-2 md:px-4 hover:border-[#c8e6c0] hover:shadow-sm transition-all duration-200"
-            style={{ minHeight: '72px' }}
+            className="group flex flex-col items-center gap-3 min-w-[90px] md:min-w-[110px] snap-start"
         >
-            <span className="text-xs md:text-sm font-semibold text-gray-700 group-hover:text-[#2d5a27] transition-colors leading-tight flex-1 pr-1">
-                {category.name}
-            </span>
-
-            <div className="flex items-center justify-center flex-shrink-0 w-9 h-9 md:w-12 md:h-12">
+            <div className="w-[80px] h-[80px] md:w-[100px] md:h-[100px] rounded-full bg-[#f4f6f8] flex items-center justify-center overflow-hidden border border-transparent group-hover:border-[#c8e6c0] group-hover:shadow-sm transition-all duration-300">
                 <img
                     src={imgSrc}
                     alt={category.name || "Category"} 
-                    width="63"
-                    height="63"
                     loading="lazy"
-                    className="w-9 h-9 md:w-12 md:h-12 object-contain group-hover:scale-110 transition-transform duration-300"
+                    className="w-14 h-14 md:w-[70px] md:h-[70px] object-contain group-hover:scale-110 transition-transform duration-300"
                     onError={(e) => {
-                        // If the uploaded image is physically missing/broken, swap to default
                         if (e.target.src !== defaultImage) {
                             e.target.src = defaultImage;
                         }
                     }}
                 />
             </div>
+            
+            <span className="text-xs md:text-sm font-normal text-gray-800 text-center leading-snug px-1 group-hover:text-[#2d5a27] transition-colors line-clamp-2">
+                {category.name}
+            </span>
         </Link>
     );
 }

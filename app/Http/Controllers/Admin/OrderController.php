@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductVariant;
+use App\Models\Color;
+use App\Models\Size;
 use App\Models\User; 
 use App\Models\Blacklist; 
 use App\Services\SteadfastCourierService;
@@ -17,6 +20,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class OrderController extends Controller
@@ -26,7 +30,6 @@ class OrderController extends Controller
     protected $orderService;
     protected $smsService; 
 
-    // How many hours before we re-fetch from BDCourier API
     const COURIER_HISTORY_TTL_HOURS = 24;
 
     public function __construct(
@@ -41,30 +44,20 @@ class OrderController extends Controller
         $this->smsService = $smsService;
     }
 
-    /**
-     * Display a listing of orders with filtering.
-     */
     public function index(Request $request)
     {
-        // Eager load the relationships
         $query = Order::with(['user', 'assignedStaff'])->latest();
-
-        // Apply filters via helper
         $this->applyFilters($query, $request);
 
-        // --- Handle Dynamic Pagination ---
         $perPage = $request->input('per_page', 10);
         $perPage = in_array($perPage, [10, 25, 50, 100]) ? (int) $perPage : 10;
-
         $orders = $query->paginate($perPage)->withQueryString();
 
-        // Fetch active staff members to populate the assignment dropdowns
         $staffMembers = User::whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
             ->select('id', 'name')
             ->get();
 
-        // Quick Stats for the header cards
         $todaysOrdersCount = Order::whereDate('created_at', Carbon::today())->count();
         $pendingOrdersCount = Order::where('order_status', 'pending')->count();
 
@@ -77,17 +70,10 @@ class OrderController extends Controller
         ]);
     }
 
-    /**
-     * Export orders to CSV based on current filters.
-     */
     public function export(Request $request)
     {
         $query = Order::with(['user', 'assignedStaff'])->latest();
-
-        // Apply exactly the same filters as the index method
         $this->applyFilters($query, $request);
-
-        // Fetch all matching orders
         $orders = $query->get();
 
         $fileName = 'orders_export_' . date('Y-m-d_H-i-s') . '.csv';
@@ -108,10 +94,7 @@ class OrderController extends Controller
 
         $callback = function() use($orders, $columns) {
             $file = fopen('php://output', 'w');
-            
-            // Add BOM for UTF-8 compatibility (helps Excel read Bengali/special characters)
             fputs($file, "\xEF\xBB\xBF");
-            
             fputcsv($file, $columns);
 
             foreach ($orders as $order) {
@@ -131,21 +114,15 @@ class OrderController extends Controller
                     $order->assignedStaff->name ?? 'Unassigned'
                 ]);
             }
-
             fclose($file);
         };
 
         return response()->stream($callback, 200, $headers);
     }
 
-    /**
-     * Display the specified order details.
-     */
     public function show(Order $order)
     {
-        // Eager load assignedStaff and items
         $order->load(['items.product', 'user', 'assignedStaff']);
-
         $initialCourierHistory = $this->getCourierHistory($order);
 
         $customerHistory = Order::where('id', '!=', $order->id)
@@ -180,7 +157,6 @@ class OrderController extends Controller
                 ];
             });
 
-        // Fetch active staff members to populate the assignment dropdown
         $staffMembers = User::whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
             ->select('id', 'name')
@@ -196,35 +172,24 @@ class OrderController extends Controller
         ]);
     }
 
-    /**
-     * Render the order invoice.
-     */
     public function invoice(Order $order)
     {
         $order->load(['items.product', 'user']);
-
         return Inertia::render('Admin/Orders/Invoice', [
             'order' => $order,
             'orderItems' => $order->items
         ]);
     }
 
-    /**
-     * Render the shipping label sticker.
-     */
     public function label(Order $order)
     {
         $order->load(['items.product', 'user']);
-
         return Inertia::render('Admin/Orders/Label', [
             'order' => $order,
             'orderItems' => $order->items
         ]);
     }
 
-    /**
-     * Update order details and items.
-     */
     public function update(Request $request, Order $order)
     {
         $validated = $request->validate([
@@ -248,9 +213,6 @@ class OrderController extends Controller
         return redirect()->back()->with('success', 'Order and Items updated successfully!');
     }
 
-    /**
-     * Update only system status and synchronize real-time analytics.
-     */
     public function updateStatus(Request $request, Order $order)
     {
         $request->validate([
@@ -267,43 +229,44 @@ class OrderController extends Controller
         $wasCancelled = in_array($oldStatus, $cancelledStatuses);
         $isCancelled = in_array($newStatus, $cancelledStatuses);
 
-        $analyticsService = app(AnalyticsEventService::class);
-        $order->loadMissing('items');
+        DB::transaction(function () use ($order, $newStatus, $paymentStatus, $oldStatus, $wasCancelled, $isCancelled) {
+            $analyticsService = app(AnalyticsEventService::class);
+            $order->loadMissing('items');
 
-        // Logic to deduct or restore metrics based on status transitions
-        if (!$wasCancelled && $isCancelled) {
-            foreach ($order->items as $item) {
-                $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
-                    'quantity' => $item->quantity, 
-                    'revenue' => $item->price * $item->quantity,
-                    'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
-                ], $order->created_at);
+            if (!$wasCancelled && $isCancelled) {
+                foreach ($order->items as $item) {
+                    $this->orderService->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'restore');
+                    $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
+                        'quantity' => $item->quantity, 
+                        'revenue' => $item->price * $item->quantity,
+                        'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
+                    ], $order->created_at);
+                }
+            } elseif ($wasCancelled && !$isCancelled) {
+                foreach ($order->items as $item) {
+                    $this->orderService->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'deduct');
+                    $analyticsService->logEvent($item->product_id, 'purchase', null, [
+                        'quantity' => $item->quantity, 
+                        'revenue' => $item->price * $item->quantity,
+                        'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
+                    ], $order->created_at);
+                }
             }
-        } elseif ($wasCancelled && !$isCancelled) {
-            foreach ($order->items as $item) {
-                $analyticsService->logEvent($item->product_id, 'purchase', null, [
-                    'quantity' => $item->quantity, 
-                    'revenue' => $item->price * $item->quantity,
-                    'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
-                ], $order->created_at);
-            }
-        }
 
-        // Add to Edit History
-        $history = $order->edit_history ?? [];
-        $history[] = [
-            'action' => "Changed status to: Order({$newStatus}), Payment({$paymentStatus})",
-            'user'   => Auth::user() ? Auth::user()->name : 'System',
-            'time'   => now()->toISOString(),
-        ];
+            $history = $order->edit_history ?? [];
+            $history[] = [
+                'action' => "Changed status to: Order({$newStatus}), Payment({$paymentStatus})",
+                'user'   => Auth::user() ? Auth::user()->name : 'System',
+                'time'   => now()->toISOString(),
+            ];
 
-        $order->update([
-            'order_status'   => $newStatus,
-            'payment_status' => $paymentStatus,
-            'edit_history'   => $history,
-        ]);
+            $order->update([
+                'order_status'   => $newStatus,
+                'payment_status' => $paymentStatus,
+                'edit_history'   => $history,
+            ]);
+        });
 
-        // --- Send Status Update SMS using Templates ---
         if ($oldStatus !== $newStatus) {
             try {
                 if ($newStatus === 'shipped') {
@@ -333,32 +296,29 @@ class OrderController extends Controller
         return redirect()->back()->with('success', 'Order status updated successfully.');
     }
 
-    /**
-     * Remove the specified order and deduct analytics if active.
-     */
     public function destroy(Order $order)
     {
-        $cancelledStatuses = ['Number off', 'Vule order korche', 'Cancelled', 'cancelled', 'way_to_return', 'returned', 'partially_cancelled'];
-        $order->loadMissing('items');
+        DB::transaction(function () use ($order) {
+            $cancelledStatuses = ['Number off', 'Vule order korche', 'Cancelled', 'cancelled', 'way_to_return', 'returned', 'partially_cancelled'];
+            $order->loadMissing('items');
 
-        if (!in_array($order->order_status, $cancelledStatuses)) {
-            $analyticsService = app(AnalyticsEventService::class);
-            foreach ($order->items as $item) {
-                $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
-                    'quantity' => $item->quantity, 
-                    'revenue' => $item->price * $item->quantity,
-                    'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
-                ], $order->created_at);
+            if (!in_array($order->order_status, $cancelledStatuses)) {
+                $analyticsService = app(AnalyticsEventService::class);
+                foreach ($order->items as $item) {
+                    $this->orderService->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'restore');
+                    $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
+                        'quantity' => $item->quantity, 
+                        'revenue' => $item->price * $item->quantity,
+                        'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
+                    ], $order->created_at);
+                }
             }
-        }
+            $order->delete();
+        });
 
-        $order->delete();
         return redirect()->route('admin.orders.index')->with('success', 'Order deleted successfully');
     }
 
-    /**
-     * Manually assign an order to a specific staff member.
-     */
     public function assignStaff(Request $request, Order $order)
     {
         $request->validate([
@@ -366,7 +326,6 @@ class OrderController extends Controller
         ]);
 
         $staff = User::findOrFail($request->staff_id);
-
         $history = $order->edit_history ?? [];
         $history[] = [
             'action' => "Manually assigned to staff: {$staff->name}",
@@ -382,9 +341,6 @@ class OrderController extends Controller
         return redirect()->back()->with('success', "Order assigned to {$staff->name} successfully.");
     }
 
-    /**
-     * Bulk assign selected orders to a specific staff member.
-     */
     public function bulkAssignStaff(Request $request)
     {
         $request->validate([
@@ -413,9 +369,6 @@ class OrderController extends Controller
         return redirect()->back()->with('success', "Selected orders assigned to {$staff->name} successfully.");
     }
 
-    /**
-     * Bulk delete orders.
-     */
     public function bulkDelete(Request $request)
     {
         $request->validate([
@@ -423,29 +376,29 @@ class OrderController extends Controller
             'ids.*' => 'exists:orders,id',
         ]);
 
-        $cancelledStatuses = ['Number off', 'Vule order korche', 'Cancelled', 'cancelled', 'way_to_return', 'returned', 'partially_cancelled'];
-        $analyticsService = app(AnalyticsEventService::class);
-        $orders = Order::with('items')->whereIn('id', $request->ids)->get();
+        DB::transaction(function () use ($request) {
+            $cancelledStatuses = ['Number off', 'Vule order korche', 'Cancelled', 'cancelled', 'way_to_return', 'returned', 'partially_cancelled'];
+            $analyticsService = app(AnalyticsEventService::class);
+            $orders = Order::with('items')->whereIn('id', $request->ids)->lockForUpdate()->get();
 
-        foreach ($orders as $order) {
-            if (!in_array($order->order_status, $cancelledStatuses)) {
-                foreach ($order->items as $item) {
-                    $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
-                        'quantity' => $item->quantity, 
-                        'revenue' => $item->price * $item->quantity,
-                        'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
-                    ], $order->created_at);
+            foreach ($orders as $order) {
+                if (!in_array($order->order_status, $cancelledStatuses)) {
+                    foreach ($order->items as $item) {
+                        $this->orderService->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'restore');
+                        $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
+                            'quantity' => $item->quantity, 
+                            'revenue' => $item->price * $item->quantity,
+                            'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
+                        ], $order->created_at);
+                    }
                 }
+                $order->delete();
             }
-            $order->delete();
-        }
+        });
 
         return redirect()->back()->with('success', 'Selected orders deleted successfully.');
     }
 
-    /**
-     * Bulk update order status.
-     */
     public function bulkUpdateStatus(Request $request)
     {
         $request->validate([
@@ -462,57 +415,65 @@ class OrderController extends Controller
         if (!empty($updateData)) {
             $cancelledStatuses = ['Number off', 'Vule order korche', 'Cancelled', 'cancelled', 'way_to_return', 'returned', 'partially_cancelled'];
             $analyticsService = app(AnalyticsEventService::class);
-            $orders = Order::with('items')->whereIn('id', $request->ids)->get();
             
-            foreach($orders as $order) {
-                $oldStatus = $order->order_status;
-                $newStatus = $request->order_status ?? $oldStatus;
+            DB::transaction(function () use ($request, $updateData, $cancelledStatuses, $analyticsService) {
+                $orders = Order::with('items')->whereIn('id', $request->ids)->lockForUpdate()->get();
+                
+                foreach($orders as $order) {
+                    $oldStatus = $order->order_status;
+                    $newStatus = $request->order_status ?? $oldStatus;
 
-                $wasCancelled = in_array($oldStatus, $cancelledStatuses);
-                $isCancelled = in_array($newStatus, $cancelledStatuses);
+                    $wasCancelled = in_array($oldStatus, $cancelledStatuses);
+                    $isCancelled = in_array($newStatus, $cancelledStatuses);
 
-                if (!$wasCancelled && $isCancelled) {
-                    foreach ($order->items as $item) {
-                        $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
-                            'quantity' => $item->quantity, 
-                            'revenue' => $item->price * $item->quantity,
-                            'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
-                        ], $order->created_at);
+                    if (!$wasCancelled && $isCancelled) {
+                        foreach ($order->items as $item) {
+                            $this->orderService->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'restore');
+                            $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
+                                'quantity' => $item->quantity, 
+                                'revenue' => $item->price * $item->quantity,
+                                'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
+                            ], $order->created_at);
+                        }
+                    } elseif ($wasCancelled && !$isCancelled) {
+                        foreach ($order->items as $item) {
+                            $this->orderService->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'deduct');
+                            $analyticsService->logEvent($item->product_id, 'purchase', null, [
+                                'quantity' => $item->quantity, 
+                                'revenue' => $item->price * $item->quantity,
+                                'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
+                            ], $order->created_at);
+                        }
                     }
-                } elseif ($wasCancelled && !$isCancelled) {
-                    foreach ($order->items as $item) {
-                        $analyticsService->logEvent($item->product_id, 'purchase', null, [
-                            'quantity' => $item->quantity, 
-                            'revenue' => $item->price * $item->quantity,
-                            'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
-                        ], $order->created_at);
-                    }
+
+                    $history = $order->edit_history ?? [];
+                    $history[] = [
+                        'action' => "Bulk updated status",
+                        'user'   => Auth::user() ? Auth::user()->name : 'System',
+                        'time'   => now()->toISOString(),
+                    ];
+                    $order->update(array_merge($updateData, ['edit_history' => $history]));
                 }
+            });
 
-                $history = $order->edit_history ?? [];
-                $history[] = [
-                    'action' => "Bulk updated status",
-                    'user'   => Auth::user() ? Auth::user()->name : 'System',
-                    'time'   => now()->toISOString(),
-                ];
-                $order->update(array_merge($updateData, ['edit_history' => $history]));
-
-                // --- Bulk Send Status Update SMS using Templates ---
-                if ($oldStatus !== $newStatus) {
+            // Send notification logic outside of the transaction block
+            $ordersForSms = Order::whereIn('id', $request->ids)->get();
+            foreach($ordersForSms as $order) {
+                if ($request->filled('order_status') && $order->order_status === $request->order_status) {
                     try {
-                        if ($newStatus === 'shipped') {
+                        if ($request->order_status === 'shipped') {
                             $this->smsService->sendTemplatedSms(
                                 $order->customer_phone, 'sms_template_order_shipped', 
                                 "Dear {name}, your order {order_number} has been shipped and is on its way to you.", 
                                 ['{name}' => $order->customer_name, '{order_number}' => $order->order_number]
                             );
-                        } elseif ($newStatus === 'delivered') {
+                        } elseif ($request->order_status === 'delivered') {
                             $this->smsService->sendTemplatedSms(
                                 $order->customer_phone, 'sms_template_order_delivered', 
                                 "Dear {name}, your order {order_number} has been delivered successfully. Thank you for staying with us!", 
                                 ['{name}' => $order->customer_name, '{order_number}' => $order->order_number]
                             );
-                        } elseif (in_array($newStatus, $cancelledStatuses)) {
+                        } elseif (in_array($request->order_status, $cancelledStatuses)) {
                             $this->smsService->sendTemplatedSms(
                                 $order->customer_phone, 'sms_template_order_cancelled', 
                                 "Dear {name}, your order {order_number} has been cancelled. If you have any queries, please contact our support.", 
@@ -529,9 +490,6 @@ class OrderController extends Controller
         return redirect()->back()->with('success', 'Selected orders updated successfully.');
     }
 
-    /**
-     * Send a single order to Steadfast Courier.
-     */
     public function sendToSteadfast(Order $order)
     {
         if ($order->consignment_id) {
@@ -540,7 +498,6 @@ class OrderController extends Controller
 
         $shippingData = $this->extractShippingDetails($order);
         $cleanPhone   = $this->cleanPhone($shippingData['phone']);
-
         $codAmount = ($order->payment_status === 'paid') ? 0 : ($order->payment_method === 'cod' ? (float) $order->total_amount : 0);
 
         $response = $this->steadfast->createOrder([
@@ -568,7 +525,6 @@ class OrderController extends Controller
                 'edit_history'   => $history,
             ]);
 
-            // --- Send Dispatched SMS with Tracking using Template ---
             try {
                 $trackingCode = $response['consignment']['tracking_code'];
                 $this->smsService->sendTemplatedSms(
@@ -591,9 +547,6 @@ class OrderController extends Controller
         return redirect()->back()->with('error', 'Failed to send order to Steadfast: ' . $errorMsg);
     }
 
-    /**
-     * Bulk send orders to Steadfast Courier.
-     */
     public function bulkSendToSteadfast(Request $request)
     {
         $request->validate([
@@ -614,7 +567,6 @@ class OrderController extends Controller
         foreach ($orders as $order) {
             $shippingData = $this->extractShippingDetails($order);
             $cleanPhone   = $this->cleanPhone($shippingData['phone']);
-
             $codAmount = ($order->payment_status === 'paid') ? 0 : ($order->payment_method === 'cod' ? (float) $order->total_amount : 0);
 
             $response = $this->steadfast->createOrder([
@@ -642,7 +594,6 @@ class OrderController extends Controller
                     'edit_history'   => $history,
                 ]);
 
-                // --- Send Dispatched SMS with Tracking using Template ---
                 try {
                     $trackingCode = $response['consignment']['tracking_code'];
                     $this->smsService->sendTemplatedSms(
@@ -665,9 +616,6 @@ class OrderController extends Controller
         return redirect()->back()->with('success', "{$successCount} orders processed.");
     }
 
-    /**
-     * Fetch real-time status from Steadfast Courier and Sync with System.
-     */
     public function checkSteadfastStatus(Order $order)
     {
         if (!$order->consignment_id) {
@@ -683,61 +631,61 @@ class OrderController extends Controller
             $newStatus = $oldStatus;
             $paymentStatus = $order->payment_status;
 
-            // 1. Map Courier Status to System Status
             if ($courierStatus === 'delivered') {
                 $newStatus = 'delivered';
-                $paymentStatus = 'paid'; // Auto-mark as paid
+                $paymentStatus = 'paid';
             } elseif (in_array($courierStatus, ['cancelled', 'returned', 'returned_to_merchant'])) {
                 $newStatus = 'cancelled';
             } elseif (in_array($courierStatus, ['partial_delivered', 'partially_delivered', 'partially_cancelled'])) {
-                $newStatus = 'partially_cancelled'; // New partial cancellation system status
+                $newStatus = 'partially_cancelled';
             }
 
             $updateData = ['courier_status' => $response['delivery_status']];
 
-            // 2. If the mapped system status is different from the current status, sync it
             if ($oldStatus !== $newStatus) {
-                $updateData['order_status'] = $newStatus;
-                $updateData['payment_status'] = $paymentStatus;
+                DB::transaction(function () use ($order, &$updateData, $newStatus, $paymentStatus, $oldStatus) {
+                    $updateData['order_status'] = $newStatus;
+                    $updateData['payment_status'] = $paymentStatus;
 
-                // Add 'partially_cancelled' to cancellation tracking
-                $cancelledStatuses = ['Number off', 'Vule order korche', 'Cancelled', 'cancelled', 'way_to_return', 'returned', 'partially_cancelled'];
-                $wasCancelled = in_array($oldStatus, $cancelledStatuses);
-                $isCancelled = in_array($newStatus, $cancelledStatuses);
+                    $cancelledStatuses = ['Number off', 'Vule order korche', 'Cancelled', 'cancelled', 'way_to_return', 'returned', 'partially_cancelled'];
+                    $wasCancelled = in_array($oldStatus, $cancelledStatuses);
+                    $isCancelled = in_array($newStatus, $cancelledStatuses);
 
-                $analyticsService = app(AnalyticsEventService::class);
-                $order->loadMissing('items');
+                    $analyticsService = app(AnalyticsEventService::class);
+                    $order->loadMissing('items');
 
-                // Adjust Analytics Gross Margin / Revenue automatically
-                if (!$wasCancelled && $isCancelled) {
-                    foreach ($order->items as $item) {
-                        $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
-                            'quantity' => $item->quantity, 
-                            'revenue' => $item->price * $item->quantity,
-                            'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
-                        ], $order->created_at);
+                    if (!$wasCancelled && $isCancelled) {
+                        foreach ($order->items as $item) {
+                            $this->orderService->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'restore');
+                            $analyticsService->logEvent($item->product_id, 'cancel_purchase', null, [
+                                'quantity' => $item->quantity, 
+                                'revenue' => $item->price * $item->quantity,
+                                'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
+                            ], $order->created_at);
+                        }
+                    } elseif ($wasCancelled && !$isCancelled) {
+                        foreach ($order->items as $item) {
+                            $this->orderService->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'deduct');
+                            $analyticsService->logEvent($item->product_id, 'purchase', null, [
+                                'quantity' => $item->quantity, 
+                                'revenue' => $item->price * $item->quantity,
+                                'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
+                            ], $order->created_at);
+                        }
                     }
-                } elseif ($wasCancelled && !$isCancelled) {
-                    foreach ($order->items as $item) {
-                        $analyticsService->logEvent($item->product_id, 'purchase', null, [
-                            'quantity' => $item->quantity, 
-                            'revenue' => $item->price * $item->quantity,
-                            'gross_margin' => ($item->price - ($item->unit_cost ?? 0)) * $item->quantity
-                        ], $order->created_at);
-                    }
-                }
 
-                // Add to Edit History
-                $history = $order->edit_history ?? [];
-                $history[] = [
-                    'action' => "Auto-synced status from Courier: Order({$newStatus}), Payment({$paymentStatus})",
-                    'user'   => 'System (Courier Sync)',
-                    'time'   => now()->toISOString(),
-                ];
-                $updateData['edit_history'] = $history;
+                    $history = $order->edit_history ?? [];
+                    $history[] = [
+                        'action' => "Auto-synced status from Courier: Order({$newStatus}), Payment({$paymentStatus})",
+                        'user'   => 'System (Courier Sync)',
+                        'time'   => now()->toISOString(),
+                    ];
+                    $updateData['edit_history'] = $history;
+                    $order->update($updateData);
+                });
 
-                // Send Automated SMS
                 try {
+                    $cancelledStatuses = ['Number off', 'Vule order korche', 'Cancelled', 'cancelled', 'way_to_return', 'returned', 'partially_cancelled'];
                     if ($newStatus === 'delivered') {
                         $this->smsService->sendTemplatedSms(
                             $order->customer_phone, 'sms_template_order_delivered', 
@@ -754,9 +702,9 @@ class OrderController extends Controller
                 } catch (\Exception $e) {
                     Log::error('Order Status SMS failed during Courier Sync: ' . $e->getMessage());
                 }
+            } else {
+                $order->update($updateData);
             }
-
-            $order->update($updateData);
 
             return response()->json([
                 'success' => true, 
@@ -769,9 +717,6 @@ class OrderController extends Controller
         return response()->json(['success' => false, 'message' => 'Failed to fetch status.']);
     }
 
-    /**
-     * Check courier history via BDCourier API.
-     */
     public function bdCourierCheck(Request $request)
     {
         $request->validate([
@@ -796,9 +741,6 @@ class OrderController extends Controller
         return response()->json($data);
     }
 
-    /**
-     * Block an order's IP Address and Device Fingerprint.
-     */
     public function blockClient(Order $order)
     {
         $blockedCount = 0;
@@ -826,16 +768,9 @@ class OrderController extends Controller
         return redirect()->back()->with('error', 'These identifiers are already blocked or none were found.');
     }
 
-    // --- Private Helpers ---
-
-    /**
-     * Helper to apply filtering logic (shared between index and export).
-     */
     private function applyFilters($query, Request $request)
     {
-        // Date Filtering - Changed default from 'today' to 'all'
         $dateFilter = $request->input('date_filter', 'all'); 
-
         switch ($dateFilter) {
             case 'today':
                 $query->whereDate('created_at', Carbon::today());
@@ -871,7 +806,6 @@ class OrderController extends Controller
                 break;
         }
 
-        // Search text
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -885,7 +819,6 @@ class OrderController extends Controller
             });
         }
 
-        // System Status
         if ($request->filled('status') && $request->status !== 'all') {
             if ($request->status === 'cancelled') {
                 $query->whereIn('order_status', [
@@ -901,12 +834,10 @@ class OrderController extends Controller
             }
         }
 
-        // Order Source
         if ($request->filled('source') && $request->source !== 'all') {
             $query->where('order_source', $request->source);
         }
 
-        // Courier Status
         if ($request->filled('courier_status') && $request->courier_status !== 'all') {
             if ($request->courier_status === 'synced') {
                 $query->whereNotNull('consignment_id');
@@ -917,7 +848,6 @@ class OrderController extends Controller
             }
         }
 
-        // Filter by Assigned Staff
         if ($request->filled('assigned_to') && $request->assigned_to !== 'all') {
             if ($request->assigned_to === 'unassigned') {
                 $query->whereNull('assigned_to');

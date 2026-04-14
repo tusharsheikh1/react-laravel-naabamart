@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/Frontend/Layout';
+import AuthenticatedLayout from '@/Layouts/Frontend/Themes/General/Layout/';
 import { Head } from '@inertiajs/react';
 import DeleteUserForm from './Partials/DeleteUserForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';

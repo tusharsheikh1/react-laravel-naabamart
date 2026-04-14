@@ -20,52 +20,71 @@ export default function FoodFeaturedCategories({ featuredCategories = [] }) {
     const handleImageError = (e) => { e.target.src = defaultImage; };
 
     return (
-        <section className="w-full relative px-2 sm:px-0">
-            {/* Header Section */}
-            <div className="relative flex items-center justify-center mb-6">
-                {/* Updated Headline */}
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1c0a00] tracking-tight text-center" style={{ fontFamily: "'Georgia', serif" }}>
+        <section className="w-full">
+            {/* Header */}
+            <div className="text-center mb-6">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1c0a00] tracking-tight"
+                    style={{ fontFamily: "'Georgia', serif" }}>
                     Featured Categories
                 </h2>
-                
-                {/* Navigation Arrows */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-2">
-                    <button className="cat-prev w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 text-gray-600 hover:bg-[#e63b0a] hover:text-white transition-all">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-                    <button className="cat-next w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 text-gray-600 hover:bg-[#e63b0a] hover:text-white transition-all">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                    </button>
-                </div>
             </div>
             
-            <div className="w-full relative">
+            {/* Slider with edge arrows */}
+            <div className="relative">
+                {/* Prev Arrow */}
+                <button className="cat-prev absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-[#f97316] text-white shadow-md hover:bg-[#ea580c] transition-all"
+                    style={{ transform: 'translateY(-50%) translateX(-50%)' }}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+
+                {/* Next Arrow */}
+                <button className="cat-next absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-[#f97316] text-white shadow-md hover:bg-[#ea580c] transition-all"
+                    style={{ transform: 'translateY(-50%) translateX(50%)' }}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+
                 <Swiper
                     modules={[FreeMode, Navigation, Autoplay]}
                     freeMode={true}
                     grabCursor={true}
                     slidesPerView="auto"
-                    navigation={{ nextEl: '.cat-next', prevEl: '.cat-prev' }}
-                    className="pb-2"
+                    spaceBetween={16}
+                    loop={true}
+                    loopedSlides={featuredCategories.length}
+                    autoplay={{
+                        delay: 0,
+                        disableOnInteraction: false,
+                        pauseOnMouseEnter: true,
+                    }}
+                    speed={4500}
+                    allowTouchMove={true}
+                    navigation={{
+                        nextEl: '.cat-next',
+                        prevEl: '.cat-prev',
+                    }}
+                    onSwiper={(swiper) => {
+                        swiper.wrapperEl.style.transitionTimingFunction = 'linear';
+                    }}
+                    className="px-2 pb-2"
                     breakpoints={{
-                        320: { spaceBetween: 12 },
-                        480: { spaceBetween: 16 },
-                        768: { spaceBetween: 20 },
-                        1024: { spaceBetween: 24 },
+                        320: { spaceBetween: 10 },
+                        480: { spaceBetween: 14 },
+                        768: { spaceBetween: 16 },
+                        1024: { spaceBetween: 20 },
                     }}
                 >
                     {featuredCategories.map((category) => (
                         <SwiperSlide key={category.id} className="!w-auto">
                             <Link
                                 href={route('shop', { category: category.id })}
-                                className="flex flex-col items-center group w-[90px] sm:w-[110px] md:w-[130px] lg:w-[150px]"
+                                className="flex flex-col items-center group w-[100px] sm:w-[120px] md:w-[140px] lg:w-[160px]"
                             >
-                                {/* Square Card */}
-                                <div className="w-full aspect-square rounded-2xl overflow-hidden mb-3 bg-white border border-gray-100 group-hover:border-[#e63b0a] shadow-sm transition-all duration-300">
+                                {/* Circular white card with border */}
+                                <div className="w-[80px] h-[80px] sm:w-[100px] sm:h-[100px] md:w-[120px] md:h-[120px] rounded-2xl overflow-hidden mb-3 bg-white border border-gray-100 group-hover:border-[#f97316] shadow-sm transition-all duration-300 flex items-center justify-center">
                                     <img
                                         src={getImageUrl(category.image)}
                                         alt={category.name}
@@ -74,9 +93,7 @@ export default function FoodFeaturedCategories({ featuredCategories = [] }) {
                                         loading="lazy"
                                     />
                                 </div>
-                                
-                                {/* Bold Text */}
-                                <h3 className="text-[12px] sm:text-sm font-bold text-center text-[#1c0a00] group-hover:text-[#e63b0a] transition-colors truncate w-full px-1">
+                                <h3 className="text-[12px] sm:text-[13px] font-semibold text-center text-[#1c0a00] group-hover:text-[#f97316] transition-colors truncate w-full px-1">
                                     {category.name}
                                 </h3>
                             </Link>

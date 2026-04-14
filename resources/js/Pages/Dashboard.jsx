@@ -1,4 +1,4 @@
-import FrontendLayout from '@/Layouts/Frontend/Layout';
+import FrontendLayout from '@/Layouts/Frontend/Themes/General/Layout';
 import { Head, Link } from '@inertiajs/react';
 
 export default function Dashboard({ auth }) {

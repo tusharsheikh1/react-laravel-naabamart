@@ -5,11 +5,11 @@ import InputError from '@/Components/InputError';
 export default function GeneralTab({ data, setData, errors, settings }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
+
             {/* --- SITE THEME & LAYOUT SETTINGS --- */}
             <div className="col-span-1 md:col-span-2 p-4 bg-gray-50 border rounded-lg">
                 <InputLabel htmlFor="site_theme" value="Active Site Theme & Layout" className="text-lg font-bold text-indigo-700" />
-                
+
                 <div className="grid grid-cols-1 gap-4 mt-4">
                     {/* UNIFIED THEME SETTING */}
                     <div>
@@ -42,11 +42,11 @@ export default function GeneralTab({ data, setData, errors, settings }) {
                                 value={data.primary_color || '#2d5a27'}
                                 onChange={(e) => setData('primary_color', e.target.value)}
                             />
-                            <TextInput 
+                            <TextInput
                                 type="text"
-                                className="block w-full max-w-xs" 
-                                value={data.primary_color || '#2d5a27'} 
-                                onChange={(e) => setData('primary_color', e.target.value)} 
+                                className="block w-full max-w-xs"
+                                value={data.primary_color || '#2d5a27'}
+                                onChange={(e) => setData('primary_color', e.target.value)}
                                 placeholder="#2d5a27"
                             />
                         </div>
@@ -68,7 +68,7 @@ export default function GeneralTab({ data, setData, errors, settings }) {
                     <option value="bn">Bangla</option>
                 </select>
             </div>
-            
+
             <div>
                 <InputLabel htmlFor="general_product_layout" value="General Product Layout" />
                 <select
@@ -77,11 +77,14 @@ export default function GeneralTab({ data, setData, errors, settings }) {
                     value={data.general_product_layout || 'ShowGeneral'}
                     onChange={(e) => setData('general_product_layout', e.target.value)}
                 >
-                    <option value="ShowGeneral">Default (ShowGeneral)</option>
-                    <option value="ShowFood">Food (ShowFood)</option>
-                    <option value="ShowFashion">Fashion (ShowFashion)</option>
-                    <option value="ShowGadget">Gadgets (ShowGadget)</option>
+                    <option value="ShowGeneral">Default — General Store</option>
+                    <option value="ShowFood">Food & Grocery (ShowFood)</option>
+                    <option value="ShowFashion">Fashion & Clothing (ShowFashion)</option>
+                    <option value="ShowGadget">Tech & Gadgets (ShowGadget)</option>
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                    Applies to all products of type <strong>general</strong>. Book and Digital products always use their own dedicated layouts.
+                </p>
             </div>
 
             <div>

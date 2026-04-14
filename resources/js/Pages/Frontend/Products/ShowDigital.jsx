@@ -1,7 +1,7 @@
 // resources/js/Pages/Frontend/Products/ShowDigital.jsx
 import React, { useEffect, useRef } from 'react';
 import axios from 'axios';
-import FrontendLayout from '@/Layouts/Frontend/Layout';
+import FrontendLayout from '@/Layouts/Frontend/Themes/General/Layout';
 import ProductCard from '@/Components/ProductCard';
 import { Link, useForm, usePage } from '@inertiajs/react'; // Imported usePage
 import SEO from '@/Components/SEO';

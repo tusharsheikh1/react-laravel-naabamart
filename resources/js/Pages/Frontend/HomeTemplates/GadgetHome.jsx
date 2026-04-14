@@ -1,28 +1,35 @@
 import React from 'react';
 import { Head, Link, usePage } from '@inertiajs/react';
 import SEO from '@/Components/SEO';
-import HeroSlider from '@/Components/HeroSlider';
-import ProductCard from '@/Components/ProductCard';
-import FeaturedCategories from '@/Components/FeaturedCategories';
 
-// Import shared performance features
-import { HOME_STYLES, LazyCard, SKU_PRODUCT, AllProducts } from './HomeFeatures';
+// Import Specific Fashion/Gadget UI Components
+import GadgetHeroSlider from '@/Components/Sliders/GadgetHeroSlider';
+import GadgetFeaturedCategories from '@/Components/FeaturedCategories/GadgetFeaturedCategories';
+import ProductCardGadget from '@/Components/ProductCard/ProductCardGadget';
+import GadgetStaticBanner from '@/Components/Sliders/GadgetStaticBanner';
+
+// Import Shared Performance Utilities
+import { HOME_STYLES, LazyCard, SKU_PRODUCT } from './HomeFeatures';
 
 export default function GadgetHome({ 
   sliders = [], 
+  banners = [], 
   topSelling = [], 
   brands = [], 
   homeProductCategories = [], 
   featuredCategories = [], 
-  allProducts = [] 
+  allProducts = [] // Used here to extract the latest arrivals
 }) {
   const { global_settings } = usePage().props;
 
+  // Logic to get the latest 6 products for the "New Arrivals" section
+  const newArrivals = allProducts.slice(0, 6);
+
   return (
-    <div className="bg-gray-100 font-sans">
+    <div className="bg-white font-sans text-gray-900 selection:bg-black selection:text-white">
       <SEO 
-          title={global_settings?.seo_homepage_title || "Premium Tech & Gadgets"} 
-          description={global_settings?.seo_meta_description || "Shop the latest devices and accessories."} 
+          title={global_settings?.seo_homepage_title || "Premium Fashion & Lifestyle"} 
+          description={global_settings?.seo_meta_description || "Discover the latest trends in fashion and accessories."} 
       />
 
       <Head>
@@ -31,75 +38,138 @@ export default function GadgetHome({
         )}
       </Head>
 
-      {/* Inject animation styles without the duplicate :root color */}
       <style dangerouslySetInnerHTML={{ __html: HOME_STYLES }} />
 
-      {/* Dark background wrapper specifically for the Hero Slider to make tech pop */}
-      <div className="bg-gray-900">
-        <HeroSlider sliders={sliders} />
+      {/* 1. Hero Showcase */}
+      <div className="bg-gray-50 mb-12">
+        <GadgetHeroSlider sliders={sliders} />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Featured Categories */}
-        <div className="mb-8">
-            <FeaturedCategories featuredCategories={featuredCategories} />
+        {/* 2. Lookbook Categories */}
+        <div className="mb-16">
+            <GadgetFeaturedCategories featuredCategories={featuredCategories} />
         </div>
 
-        {/* Top Brands Banner */}
-        {brands.length > 0 && (
-            <div className="flex justify-center gap-8 items-center bg-white p-6 rounded-lg shadow-sm mb-12 overflow-x-auto">
-                <span className="text-gray-500 font-semibold uppercase tracking-widest text-sm">Top Brands:</span>
-                {brands.map(brand => (
-                    <div key={brand.id} className="font-bold text-xl text-gray-800">{brand.name}</div>
-                ))}
+        {/* 3. NEW ARRIVALS SECTION (The Latest Edit) */}
+        {newArrivals.length > 0 && (
+          <section className="mb-24">
+            <div className="flex flex-col items-center justify-center mb-12">
+                <h2 className="text-xl md:text-2xl font-serif tracking-[0.15em] uppercase text-center">
+                    The Latest Edit
+                </h2>
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-2">Just Landed: New Season Essentials</p>
+                <div className="mt-4 h-[1px] w-12 bg-black" />
             </div>
-        )}
-
-        {/* Trending Gadgets */}
-        {topSelling.length > 0 && (
-          <section className="mb-16">
-            <h2 className="text-2xl font-black uppercase tracking-wider text-gray-900 mb-6 border-l-4 border-blue-600 pl-4">
-                Trending Devices
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {topSelling.map((p, i) => (
-                <LazyCard key={p.id} skeleton={SKU_PRODUCT} eager={i < 3}>
-                    <div className="bg-white p-2 rounded-lg shadow-sm hover:shadow-md transition h-full">
-                        <ProductCard product={p} />
-                    </div>
-                </LazyCard>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-12">
+              {newArrivals.map((p, i) => (
+                <div key={p.id} className={i === 5 ? "lg:hidden" : ""}>
+                    <LazyCard skeleton={SKU_PRODUCT} eager={i < 3}>
+                        <ProductCardGadget product={p} />
+                    </LazyCard>
+                </div>
               ))}
             </div>
           </section>
         )}
 
-        {/* Category Grids */}
+        {/* 4. Dynamic Promotional Banners */}
+        {banners && banners.length > 0 && (
+            <div className="mb-20 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                {banners.map((banner) => (
+                    <GadgetStaticBanner key={banner.id} banner={banner} />
+                ))}
+            </div>
+        )}
+
+        {/* 5. Trending Now (5 on Desktop, 6 on Mobile) */}
+        {topSelling.length > 0 && (
+          <section className="mb-24">
+            <div className="flex flex-col items-center justify-center mb-12">
+                <h2 className="text-xl md:text-2xl font-serif tracking-[0.15em] uppercase text-center">
+                    Trending Now
+                </h2>
+                <div className="mt-4 h-[1px] w-12 bg-black" />
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-12">
+              {topSelling.slice(0, 6).map((p, i) => (
+                <div key={p.id} className={i === 5 ? "lg:hidden" : ""}>
+                    <LazyCard skeleton={SKU_PRODUCT}>
+                        <ProductCardGadget product={p} />
+                    </LazyCard>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 6. Partner Brands (Minimalist) */}
+        {brands.length > 0 && (
+            <div className="flex justify-center gap-12 items-center py-12 mb-20 overflow-x-auto hide-scrollbar border-b border-gray-50">
+                {brands.map(brand => (
+                    <div key={brand.id} className="font-serif font-bold text-lg text-gray-300 hover:text-black transition-colors tracking-[0.3em] uppercase flex-shrink-0">
+                        {brand.name}
+                    </div>
+                ))}
+            </div>
+        )}
+
+        {/* 7. Categorized Collections */}
         {homeProductCategories.map((cat) => (
           cat.products?.length > 0 && (
-            <section key={cat.id} className="mb-12 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-              <div className="flex justify-between items-center mb-6 pb-2 border-b-2 border-gray-100">
-                  <h2 className="text-2xl font-bold text-gray-800">{cat.name}</h2>
-                  <Link href={route('shop', { category: cat.id })} className="text-sm font-bold text-blue-600 hover:underline uppercase tracking-wider">
-                      See All
+            <section key={cat.id} className="mb-24">
+              <div className="flex flex-col md:flex-row justify-between items-center md:items-end mb-10 gap-4 border-b border-gray-100 pb-6">
+                  <div className="text-center md:text-left">
+                    <h2 className="text-2xl md:text-3xl font-serif tracking-wider text-black">{cat.name}</h2>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Explore the {cat.name} collection</p>
+                  </div>
+                  <Link href={route('shop', { category: cat.id })} className="text-[10px] font-bold text-black border-b border-black pb-1 hover:text-gray-500 hover:border-gray-500 uppercase tracking-[0.2em] transition-all">
+                      View Collection
                   </Link>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                {cat.products.slice(0, 5).map(p => (
-                  <LazyCard key={p.id} skeleton={SKU_PRODUCT}>
-                    <ProductCard product={p} />
-                  </LazyCard>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-12">
+                {cat.products.slice(0, 6).map((p, i) => (
+                  <div key={p.id} className={i === 5 ? "lg:hidden" : ""}>
+                    <LazyCard skeleton={SKU_PRODUCT}>
+                        <ProductCardGadget product={p} />
+                    </LazyCard>
+                  </div>
                 ))}
               </div>
             </section>
           )
         ))}
 
-        {/* Infinite Scroll All Products */}
+        {/* 8. The Complete Edit (Infinite Scroll Area) */}
         {allProducts.length > 0 && (
-          <section className="mb-20 mt-10 pt-10 border-t border-gray-300">
-            <h2 className="text-2xl font-black uppercase tracking-wider text-gray-900 mb-8 text-center">Explore All Gadgets</h2>
-            <AllProducts products={allProducts} />
+          <section className="mb-24 mt-16 pt-16 border-t border-gray-100">
+            <div className="flex flex-col items-center justify-center mb-16">
+                <h2 className="text-xl md:text-2xl font-serif tracking-[0.15em] uppercase text-center">
+                    The Complete Edit
+                </h2>
+                <div className="mt-4 h-[1px] w-12 bg-black" />
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-12">
+                {allProducts.map((p) => (
+                    <LazyCard key={p.id} skeleton={SKU_PRODUCT}>
+                        <ProductCardGadget product={p} />
+                    </LazyCard>
+                ))}
+            </div>
+
+            <div className="mt-16 flex justify-center">
+                <Link 
+                    href={route('shop')} 
+                    className="bg-black text-white px-12 py-4 text-[10px] tracking-[0.3em] uppercase font-bold hover:bg-gray-800 transition-all duration-300 shadow-lg"
+                >
+                    Discover All Products
+                </Link>
+            </div>
           </section>
         )}
       </div>

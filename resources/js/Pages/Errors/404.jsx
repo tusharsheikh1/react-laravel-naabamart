@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import FrontendLayout from '@/Layouts/Frontend/Layout';
+import FrontendLayout from '@/Layouts/Frontend/Themes/General/Layout';
 import SEO from '@/Components/SEO';
 
 export default function NotFound() {

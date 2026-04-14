@@ -170,7 +170,7 @@ export default function ShowBook({ product, relatedProducts }) {
             ...(isBuyNow && { action: 'buy_now' })
         }, {
             preserveScroll: true,
-            preserveState: true,
+            preserveState: !isBuyNow, // Don't preserve state on buy_now — it's a full redirect
             onSuccess: () => {
                 axios.post(route('analytics.track'), { 
                     product_id: product.id, 

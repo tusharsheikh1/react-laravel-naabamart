@@ -22,31 +22,31 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http; // NEW: Added for SSLCommerz API calls
 
 class CheckoutController extends Controller
 {
-    /**
-     * Display the checkout page with cart details and shipping methods.
-     */
+    protected $analyticsService;
+    protected $orderService;
+    protected $smsService;
+
+    public function __construct(
+        AnalyticsEventService $analyticsService, 
+        OrderService $orderService, 
+        SmsService $smsService
+    ) {
+        $this->analyticsService = $analyticsService;
+        $this->orderService = $orderService;
+        $this->smsService = $smsService;
+    }
+
     public function index(Request $request)
     {
-        // 1. Determine Checkout Context (Buy Now vs Regular Cart)
-        // If the URL explicitly specifies a checkout type, set it in the session.
-        if ($request->has('checkout_type')) {
-            session()->put('checkout_context', $request->query('checkout_type'));
-        } else {
-            // Default to regular cart if accessed normally
-            session()->put('checkout_context', 'cart');
-        }
-
-        $context = session()->get('checkout_context', 'cart');
-        $cartSessionKey = $context === 'buy_now' ? 'buy_now_cart' : 'cart';
-
-        // 2. Retrieve the appropriate cart
-        $cart = session()->get($cartSessionKey, []);
+        // Always use the regular cart — buy_now merges into it before redirecting here
+        session()->put('checkout_context', 'cart');
+        $cart = session()->get('cart', []);
 
         if (empty($cart)) {
-            // Reset context if empty to prevent them getting stuck
             session()->put('checkout_context', 'cart');
             return redirect()->route('cart.index')->with('error', 'Your checkout is empty. Please add items to proceed.');
         }
@@ -59,9 +59,8 @@ class CheckoutController extends Controller
 
         $cartDetails = $this->calculateCartDetails($cart);
 
-        $analyticsService = app(AnalyticsEventService::class);
         foreach ($cart as $item) {
-            $analyticsService->logEvent($item['id'], 'checkout_start', null, [
+            $this->analyticsService->logEvent($item['id'], 'checkout_start', null, [
                 'quantity' => $item['quantity'],
             ]);
         }
@@ -74,18 +73,18 @@ class CheckoutController extends Controller
         ]);
     }
 
-    /**
-     * Silently save the user's checkout progress (draft / incomplete order).
-     * Works for both standard website cart and landing page single-page checkouts.
-     */
     public function saveDraft(Request $request)
     {
-        // Determine which cart session we are drafting based on context
         $context = session()->get('checkout_context', 'cart');
         $cartSessionKey = $context === 'buy_now' ? 'buy_now_cart' : 'cart';
 
-        // Try to get items from the request first (Landing Page Widget format), 
-        // fallback to session cart (Standard Website format)
+        // Stricter draft validation
+        $request->validate([
+            'items'              => 'nullable|array',
+            'items.*.id'         => 'required_with:items|exists:products,id',
+            'items.*.quantity'   => 'required_with:items|integer|min:1',
+        ]);
+
         $cart = $request->input('items') ?? session()->get($cartSessionKey, []);
 
         if (empty($cart)) {
@@ -109,21 +108,16 @@ class CheckoutController extends Controller
         $sessionId = session()->getId();
         $phone     = $request->phone;
 
-        // Deduplication: Find existing pending draft for this session or phone
-        $draft = IncompleteOrder::where(function ($query) use ($userId, $sessionId, $phone) {
-            $query->where('session_id', $sessionId);
-            if ($userId) {
-                $query->orWhere('user_id', $userId);
-            }
-            if (!empty($phone)) {
-                $query->orWhere('phone', $phone);
-            }
-        })->where('status', 'pending')->orderBy('id', 'desc')->first();
+        // Ensure proper strict retrieval of drafts avoiding loose matching
+        $draft = IncompleteOrder::where('session_id', $sessionId)
+            ->where('status', 'pending')
+            ->orderBy('id', 'desc')
+            ->first();
 
         $data = [
             'session_id'   => $sessionId,
             'user_id'      => $userId ?? ($draft->user_id ?? null),
-            'full_name'    => $request->full_name ?? $request->name, // Accommodate standard and LP fields
+            'full_name'    => $request->full_name ?? $request->name,
             'phone'        => $phone,
             'address'      => $request->address,
             'cart_data'    => $cart,
@@ -140,15 +134,10 @@ class CheckoutController extends Controller
         return response()->json(['status' => 'success']);
     }
 
-    /**
-     * Process a standard website checkout (reads from cart session).
-     */
     public function store(Request $request)
     {
-        // 1. Determine which cart session we are fulfilling based on context
         $context = session()->get('checkout_context', 'cart');
         $cartSessionKey = $context === 'buy_now' ? 'buy_now_cart' : 'cart';
-
         $cart = session()->get($cartSessionKey, []);
 
         if (empty($cart)) {
@@ -203,6 +192,9 @@ class CheckoutController extends Controller
         try {
             DB::beginTransaction();
 
+            $productIds = collect($cart)->pluck('id')->unique()->sort()->values()->toArray();
+            Product::whereIn('id', $productIds)->lockForUpdate()->get();
+
             $order = $this->createOrderRecord(
                 $validated,
                 $cart,
@@ -215,19 +207,20 @@ class CheckoutController extends Controller
                 $request->device_fingerprint
             );
 
-            // Simple remove incomplete order lead since the user successfully placed the order themselves
+            // Safer Draft Deletion
             IncompleteOrder::where('status', 'pending')
-                ->where(function ($q) use ($sessionId, $validated) {
-                    $q->where('session_id', $sessionId)
-                      ->orWhere('phone', $validated['phone']);
-                })
+                ->where('session_id', $sessionId)
                 ->delete();
 
             DB::commit();
 
+            // Check if payment method is online
+            if ($validated['payment_method'] === 'online') {
+                return $this->initiateSSLCommerz($order, $validated);
+            }
+
             try {
-                $smsService = app(SmsService::class);
-                $smsService->sendTemplatedSms(
+                $this->smsService->sendTemplatedSms(
                     $validated['phone'],
                     'sms_template_order_placed',
                     "Dear {name}, your order ({order_number}) has been placed successfully. Total amount: ৳{amount}. Thank you for shopping with us!",
@@ -241,11 +234,26 @@ class CheckoutController extends Controller
                 Log::error('Order Confirmation SMS failed: ' . $e->getMessage());
             }
 
-            // Success! Clear the specific cart that was checked out
-            session()->forget($cartSessionKey);
-            
-            // Reset the checkout context back to normal 'cart' mode for the future
+            // Always clear the buy_now_cart
+            session()->forget('buy_now_cart');
             session()->put('checkout_context', 'cart');
+
+            // If this was a buy_now checkout, remove only the purchased items from
+            // the regular cart so all other items the user had added are preserved.
+            // If this was a normal cart checkout, clear the entire regular cart.
+            if ($context === 'buy_now') {
+                $regularCart = session()->get('cart', []);
+                if (is_array($regularCart)) {
+                    foreach ($cart as $key => $item) {
+                        unset($regularCart[$key]);
+                    }
+                    session()->put('cart', $regularCart);
+                }
+            } else {
+                session()->forget('cart');
+            }
+
+            session()->save();
 
             return redirect()->route('checkout.success', $order->id);
 
@@ -255,16 +263,8 @@ class CheckoutController extends Controller
         }
     }
 
-    /**
-     * Process an order placed via a landing-page CheckoutWidget.
-     * Supports both single product and multi-product arrays.
-     *
-     * Route: POST /lp/checkout
-     * Named: landing_page.checkout
-     */
     public function landingPageStore(Request $request)
     {
-        // --- Security block check ---
         $isBlocked = Blacklist::where(function ($query) use ($request) {
             $query->where('type', 'ip')->where('value', $request->ip());
             if (!empty($request->device_fingerprint)) {
@@ -279,16 +279,15 @@ class CheckoutController extends Controller
         }
 
         $validated = $request->validate([
-            // Support multiple products array
             'items'              => 'sometimes|array|min:1',
             'items.*.product_id' => 'required_with:items|exists:products,id',
             'items.*.quantity'   => 'required_with:items|integer|min:1',
-            
-            // Fallback for older widgets sending single product
+            'items.*.color_id'   => 'nullable|exists:colors,id',
+            'items.*.size_id'    => 'nullable|exists:sizes,id',
             'product_id'         => 'required_without:items|exists:products,id',
             'quantity'           => 'required_without:items|integer|min:1|max:100',
-            
-            // Customer Info
+            'color_id'           => 'nullable|exists:colors,id',
+            'size_id'            => 'nullable|exists:sizes,id',
             'name'               => 'required|string|max:255',
             'phone'              => 'required|string|max:20|regex:/^([0-9\s\-\+\(\)]*)$/',
             'address'            => 'nullable|string|max:500',
@@ -301,10 +300,9 @@ class CheckoutController extends Controller
         $cart = [];
         $hasFreeShipping = false;
         $subtotal = 0;
+        $totalWeight = 0; 
         
-        // --- 1. Construct the Cart Array ---
         if (!empty($validated['items'])) {
-            // New multi-product flow
             foreach ($validated['items'] as $item) {
                 $product = Product::findOrFail($item['product_id']);
                 $quantity = (int) $item['quantity'];
@@ -314,16 +312,20 @@ class CheckoutController extends Controller
                     'id'       => $product->id,
                     'quantity' => $quantity,
                     'price'    => $unitPrice,
-                    'options'  => [],
+                    'options'  => [
+                        'color_id' => $item['color_id'] ?? null,
+                        'size_id'  => $item['size_id'] ?? null,
+                    ],
                 ];
 
                 $subtotal += ($unitPrice * $quantity);
                 if ($product->is_free_shipping) {
                     $hasFreeShipping = true;
+                } else {
+                    $totalWeight += (float) ($product->weight ?? 0) * $quantity;
                 }
             }
         } else {
-            // Legacy single-product flow
             $product  = Product::findOrFail($validated['product_id']);
             $quantity = (int) $validated['quantity'];
             $unitPrice = (float) ($product->final_price ?? $product->price);
@@ -332,16 +334,20 @@ class CheckoutController extends Controller
                 'id'       => $product->id,
                 'quantity' => $quantity,
                 'price'    => $unitPrice,
-                'options'  => [],
+                'options'  => [
+                    'color_id' => $validated['color_id'] ?? null,
+                    'size_id'  => $validated['size_id'] ?? null,
+                ],
             ];
             
             $subtotal += ($unitPrice * $quantity);
             if ($product->is_free_shipping) {
                 $hasFreeShipping = true;
+            } else {
+                $totalWeight += (float) ($product->weight ?? 0) * $quantity;
             }
         }
 
-        // --- 2. Calculate Shipping ---
         $shippingMethod = ShippingMethod::findOrFail($validated['shipping_method_id']);
         $shippingCharge = 0;
         $shippingName   = $shippingMethod->name;
@@ -351,6 +357,10 @@ class CheckoutController extends Controller
                 $shippingCharge = 0;
             } else {
                 $shippingCharge = (float) $shippingMethod->base_charge;
+                if ($totalWeight > $shippingMethod->base_weight) {
+                    $extraWeight     = ceil($totalWeight - $shippingMethod->base_weight);
+                    $shippingCharge += $extraWeight * $shippingMethod->additional_charge_per_kg;
+                }
             }
         }
 
@@ -359,18 +369,16 @@ class CheckoutController extends Controller
         try {
             DB::beginTransaction();
 
-            // Lock the products for inventory checking to prevent overselling
-            $productIds = collect($cart)->pluck('id')->toArray();
+            $productIds = collect($cart)->pluck('id')->unique()->sort()->values()->toArray();
             Product::whereIn('id', $productIds)->lockForUpdate()->get();
 
             $orderValidated = [
                 'full_name'      => $validated['name'],
                 'phone'          => $validated['phone'],
                 'address'        => $validated['address'] ?? 'N/A',
-                'payment_method' => 'cod', // Landing page default is COD
+                'payment_method' => 'cod', 
             ];
 
-            // Reuse the createOrderRecord helper
             $order = $this->createOrderRecord(
                 $orderValidated,
                 $cart,
@@ -384,32 +392,24 @@ class CheckoutController extends Controller
                 $validated['note'] ?? null
             );
 
-            // Increment landing page conversions
             if (!empty($validated['landing_page_id'])) {
                 $landingPage = LandingPage::find($validated['landing_page_id']);
                 if ($landingPage) {
                     $landingPage->increment('conversions');
-                    // Increment parent if this is a variant (A/B testing)
                     if ($landingPage->parent_id) {
                         LandingPage::where('id', $landingPage->parent_id)->increment('conversions');
                     }
                 }
             }
 
-            // Simple remove incomplete order lead since the user successfully placed the order themselves
             IncompleteOrder::where('status', 'pending')
-                ->where(function ($q) use ($validated) {
-                    $q->where('session_id', session()->getId())
-                      ->orWhere('phone', $validated['phone']);
-                })
+                ->where('session_id', session()->getId())
                 ->delete();
 
             DB::commit();
 
-            // Send Order Confirmation SMS
             try {
-                $smsService = app(SmsService::class);
-                $smsService->sendTemplatedSms(
+                $this->smsService->sendTemplatedSms(
                     $validated['phone'],
                     'sms_template_order_placed',
                     "Dear {name}, your order ({order_number}) has been placed successfully. Total: ৳{amount}. Thank you!",
@@ -423,7 +423,6 @@ class CheckoutController extends Controller
                 Log::error('LP Order SMS failed: ' . $e->getMessage());
             }
 
-            // Redirect to success
             return redirect()->route('checkout.success', $order->id);
 
         } catch (\Exception $e) {
@@ -432,17 +431,12 @@ class CheckoutController extends Controller
         }
     }
 
-    /**
-     * Display the successful order page.
-     */
     public function success($order_id)
     {
         $order = Order::findOrFail($order_id);
 
-        // Retrieve the configured layout from settings, fallback to 'default'
         $layout = Setting::where('key', 'checkout_success_layout')->value('value') ?? 'default';
 
-        // Determine which Inertia component to render
         $component = $layout === 'professional' 
             ? 'Frontend/CheckoutSuccessProfessional' 
             : 'Frontend/CheckoutSuccess';
@@ -452,9 +446,6 @@ class CheckoutController extends Controller
         ]);
     }
 
-    /**
-     * Display the order invoice.
-     */
     public function invoice($order_id)
     {
         $order      = Order::findOrFail($order_id);
@@ -466,13 +457,6 @@ class CheckoutController extends Controller
         ]);
     }
 
-    // =========================================================================
-    // Private helpers
-    // =========================================================================
-
-    /**
-     * Shared order-creation logic used by both store() and landingPageStore().
-     */
     private function createOrderRecord(
         array  $validated,
         array  $cart,
@@ -495,8 +479,7 @@ class CheckoutController extends Controller
         $sequence    = ($lastOrder && preg_match('/-(\d+)$/', $lastOrder->order_number, $m)) ? (int) $m[1] + 1 : 1;
         $orderNumber = 'ORD-' . $year . '-' . str_pad($sequence, 6, '0', STR_PAD_LEFT);
 
-        $orderService    = app(OrderService::class);
-        $assignedStaffId = $orderService->getNextAvailableStaffId();
+        $assignedStaffId = $this->orderService->getNextAvailableStaffId();
 
         $order = Order::create([
             'user_id'            => Auth::id(),
@@ -522,8 +505,7 @@ class CheckoutController extends Controller
             ]],
         ]);
 
-        $orderItems       = [];
-        $analyticsService = app(AnalyticsEventService::class);
+        $orderItems = [];
 
         foreach ($cart as $item) {
             $quantity  = (int) $item['quantity'];
@@ -533,15 +515,25 @@ class CheckoutController extends Controller
             $colorName = $options['color']     ?? null;
             $sizeName  = $options['size']      ?? null;
 
+            if ($colorId && !$colorName) {
+                $colorModel = Color::find($colorId);
+                if ($colorModel) $colorName = $colorModel->name;
+            }
+            if ($sizeId && !$sizeName) {
+                $sizeModel = Size::find($sizeId);
+                if ($sizeModel) $sizeName = $sizeModel->name;
+            }
+
             $hasVariation = $colorId || $sizeId || $colorName || $sizeName;
 
-            $product = Product::lockForUpdate()->find($item['id']);
+            $product = Product::find($item['id']);
             if (!$product) {
                 throw new \Exception("A product in your cart is no longer available.");
             }
 
+            // Proper Unified Lock For Variants Prior To Condition Checks
             if ($hasVariation) {
-                $variantQuery = ProductVariant::lockForUpdate()->where('product_id', $item['id']);
+                $variantQuery = ProductVariant::where('product_id', $item['id'])->lockForUpdate();
 
                 if ($colorId) {
                     $variantQuery->where('color_id', $colorId);
@@ -570,9 +562,6 @@ class CheckoutController extends Controller
                 }
 
                 $variant->decrement('stock_quantity', $quantity);
-                if ($product->stock_quantity >= $quantity) {
-                    $product->decrement('stock_quantity', $quantity);
-                }
             } else {
                 if ($product->stock_quantity < $quantity) {
                     throw new \Exception("Sorry, '{$product->name}' does not have enough stock. Available: {$product->stock_quantity}");
@@ -581,7 +570,7 @@ class CheckoutController extends Controller
             }
 
             $unitCost = (float) ($product->cost_price ?? 0);
-            $price    = (float) $item['price'];
+            $price = (float) ($product->final_price ?? $product->price);
 
             $orderItems[] = [
                 'order_id'   => $order->id,
@@ -595,7 +584,7 @@ class CheckoutController extends Controller
                 'updated_at' => now(),
             ];
 
-            $analyticsService->logEvent($product->id, 'purchase', null, [
+            $this->analyticsService->logEvent($product->id, 'purchase', null, [
                 'quantity'     => $quantity,
                 'revenue'      => $price * $quantity,
                 'gross_margin' => ($price - $unitCost) * $quantity,
@@ -607,9 +596,6 @@ class CheckoutController extends Controller
         return $order;
     }
 
-    /**
-     * Helper to calculate totals and shipping eligibility from the cart.
-     */
     private function calculateCartDetails(array $cart): array
     {
         if (empty($cart)) {
@@ -628,7 +614,8 @@ class CheckoutController extends Controller
             $qty     = $item['quantity'];
 
             if ($product) {
-                $subtotal += (float) $item['price'] * $qty;
+                $realPrice = (float) ($product->final_price ?? $product->price);
+                $subtotal += $realPrice * $qty;
 
                 if ($product->is_free_shipping) {
                     $hasFreeShipping = true;
@@ -643,5 +630,79 @@ class CheckoutController extends Controller
             'totalWeight'     => (float) $totalWeight,
             'hasFreeShipping' => $hasFreeShipping,
         ];
+    }
+
+    private function initiateSSLCommerz(Order $order, array $validated)
+    {
+        $post_data = array();
+        $post_data['store_id'] = env('STORE_ID');
+        $post_data['store_passwd'] = env('STORE_PASSWORD');
+        $post_data['total_amount'] = $order->total_amount;
+        $post_data['currency'] = "BDT";
+        
+        // Generate and save a unique transaction ID
+        $tran_id = uniqid('txn_');
+        $order->update(['transaction_id' => $tran_id]);
+        $post_data['tran_id'] = $tran_id;
+
+        // Callback URLs
+        $post_data['success_url'] = route('payment.success');
+        $post_data['fail_url'] = route('payment.fail');
+        $post_data['cancel_url'] = route('payment.cancel');
+        $post_data['ipn_url'] = route('payment.ipn');
+
+        // Dynamic Customer Information
+        $post_data['cus_name'] = $validated['full_name'];
+        // Use authenticated user's email if available, otherwise generate a placeholder based on domain
+        $post_data['cus_email'] = Auth::user() ? Auth::user()->email : "customer@" . request()->getHost(); 
+        $post_data['cus_add1'] = $validated['address'];
+        $post_data['cus_city'] = "Dhaka"; // Can be updated if you add a City field to checkout
+        $post_data['cus_postcode'] = "1000";
+        $post_data['cus_country'] = "Bangladesh";
+        $post_data['cus_phone'] = $validated['phone'];
+        
+        // Mandatory parameters for SSLCommerz
+        $post_data['shipping_method'] = "NO";
+        $post_data['product_name'] = "Order " . $order->order_number;
+        $post_data['product_category'] = "E-commerce";
+        $post_data['product_profile'] = "general";
+
+        $apiUrl = env('SSLCZ_TESTMODE', true) ? 
+            "https://sandbox.sslcommerz.com/gwprocess/v3/api.php" : 
+            "https://securepay.sslcommerz.com/gwprocess/v3/api.php";
+
+        $response = Http::asForm()->post($apiUrl, $post_data);
+        $sslcz = json_decode($response->body(), true);
+
+        if (isset($sslcz['GatewayPageURL']) && $sslcz['GatewayPageURL'] != "") {
+            // Clear the cart session before redirecting to the gateway
+            $context = session()->get('checkout_context', 'cart');
+
+            // Always clear buy_now_cart
+            session()->forget('buy_now_cart');
+            session()->put('checkout_context', 'cart');
+
+            // For buy_now: only remove purchased items from regular cart, keep the rest.
+            // For normal cart checkout: clear the entire cart.
+            if ($context === 'buy_now') {
+                $buyNowCart = session()->get('buy_now_cart', []);
+                $regularCart = session()->get('cart', []);
+                if (is_array($regularCart) && is_array($buyNowCart)) {
+                    foreach ($buyNowCart as $key => $item) {
+                        unset($regularCart[$key]);
+                    }
+                    session()->put('cart', $regularCart);
+                }
+            } else {
+                session()->forget('cart');
+            }
+
+            session()->save();
+
+            // IMPORTANT: Use Inertia::location for external redirects in React
+            return Inertia::location($sslcz['GatewayPageURL']);
+        } else {
+            return back()->with('error', 'Payment Gateway Initialization Failed. Check your credentials.');
+        }
     }
 }

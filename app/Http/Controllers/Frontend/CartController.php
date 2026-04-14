@@ -94,12 +94,26 @@ class CartController extends Controller
         // 1. ISOLATE "BUY NOW" LOGIC
         // ==========================================
         if ($request->action === 'buy_now') {
-            // Put ONLY this item into a special 'buy_now_cart' session
-            session()->put('buy_now_cart', [$cartKey => $cartItem]);
+            // Merge the buy_now item into the regular cart
+            $cart = session()->get('cart', []);
+            if (!is_array($cart)) {
+                $cart = json_decode(json_encode($cart), true) ?? [];
+            }
+            if (isset($cart[$cartKey])) {
+                $cart[$cartKey]['quantity'] += $request->quantity;
+            } else {
+                $cart[$cartKey] = $cartItem;
+            }
+            session()->put('cart', $cart);
+
+            // Use the regular cart for checkout — all existing items will be visible
+            session()->forget('buy_now_cart');
+            session()->put('checkout_context', 'cart');
+
+            // Force session write to disk BEFORE redirect
             session()->save();
 
-            // Redirect directly to checkout with a query parameter telling it to use the buy_now_cart
-            return redirect()->route('checkout.index', ['checkout_type' => 'buy_now']);
+            return redirect()->route('checkout.index');
         }
 
         // ==========================================
@@ -133,11 +147,14 @@ class CartController extends Controller
     public function update(Request $request)
     {
         $request->validate([
-            'cart_key' => 'required|string',
-            'quantity' => 'required|integer|min:1',
+            'cart_key'      => 'required|string',
+            'quantity'      => 'required|integer|min:1',
+            'checkout_type' => 'nullable|string' // Detect context (buy_now vs cart)
         ]);
 
-        $cart = session()->get('cart', []);
+        // Choose the correct session key based on context to allow updates from Checkout/Buy Now
+        $sessionKey = $request->checkout_type === 'buy_now' ? 'buy_now_cart' : 'cart';
+        $cart = session()->get($sessionKey, []);
         
         // Safety check to ensure $cart is always an associative array
         if (!is_array($cart)) {
@@ -146,7 +163,7 @@ class CartController extends Controller
 
         if (isset($cart[$request->cart_key])) {
             $cart[$request->cart_key]['quantity'] = (int) $request->quantity;
-            session()->put('cart', $cart);
+            session()->put($sessionKey, $cart);
             session()->save(); // Explicitly save session
         }
 
@@ -159,10 +176,13 @@ class CartController extends Controller
     public function remove(Request $request)
     {
         $request->validate([
-            'cart_key' => 'required|string',
+            'cart_key'      => 'required|string',
+            'checkout_type' => 'nullable|string' // Detect context (buy_now vs cart)
         ]);
 
-        $cart = session()->get('cart', []);
+        // Choose the correct session key based on context to allow removals from Checkout/Buy Now
+        $sessionKey = $request->checkout_type === 'buy_now' ? 'buy_now_cart' : 'cart';
+        $cart = session()->get($sessionKey, []);
         
         // Safety check to ensure $cart is always an associative array
         if (!is_array($cart)) {
@@ -171,7 +191,7 @@ class CartController extends Controller
 
         if (isset($cart[$request->cart_key])) {
             unset($cart[$request->cart_key]);
-            session()->put('cart', $cart);
+            session()->put($sessionKey, $cart);
             session()->save(); // Explicitly save session
         }
 

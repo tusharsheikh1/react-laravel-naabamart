@@ -1,3 +1,4 @@
+// ThemeLayout.jsx  (updated)
 import React, { useState, useEffect } from 'react';
 import { usePage, Head } from '@inertiajs/react';
 
@@ -29,22 +30,25 @@ export default function ThemeLayout({ children }) {
 
     const closeToast = () => setToast({ ...toast, show: false });
 
-    // 1. Get Theme Layout (safely fallback to general)
+    // 1. Get Theme Layout
     const currentTheme = String(settings?.site_theme || 'general').toLowerCase();
     
-    // 2. Get Global Theme Color (Fallback to green)
+    // 2. Get Global Theme Color + Background Color
     const themeColor = settings?.primary_color || '#2d5a27';
+    const layoutBgColor = settings?.layout_bg_color || '#ffffff';   // ← NEW
 
-    // 3. Render the specific theme layout based on DB settings
+    // 3. Render the specific theme layout with background color
     const renderTheme = () => {
+        const layoutProps = { layoutBgColor };   // Pass to all themes
+
         switch (currentTheme) {
-            case 'book': return <BookLayout>{children}</BookLayout>;
-            case 'food': return <FoodLayout>{children}</FoodLayout>;
-            case 'gadget': return <GadgetLayout>{children}</GadgetLayout>;
-            case 'digital': return <DigitalLayout>{children}</DigitalLayout>;
+            case 'book': return <BookLayout {...layoutProps}>{children}</BookLayout>;
+            case 'food': return <FoodLayout {...layoutProps}>{children}</FoodLayout>;
+            case 'gadget': return <GadgetLayout {...layoutProps}>{children}</GadgetLayout>;
+            case 'digital': return <DigitalLayout {...layoutProps}>{children}</DigitalLayout>;
             case 'general': 
             default: 
-                return <GeneralLayout>{children}</GeneralLayout>;
+                return <GeneralLayout {...layoutProps}>{children}</GeneralLayout>;
         }
     };
 
@@ -57,10 +61,12 @@ export default function ThemeLayout({ children }) {
             )}
 
             <style dangerouslySetInnerHTML={{
-                __html: `:root { --theme-color: ${themeColor}; }`
+                __html: `:root { 
+                    --theme-color: ${themeColor}; 
+                    --layout-bg: ${layoutBgColor};
+                }`
             }} />
 
-            {/* Injects the correct Navbar, Footer, and Page Content */}
             {renderTheme()}
 
             <FloatingContact />

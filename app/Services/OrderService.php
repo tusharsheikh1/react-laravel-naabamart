@@ -6,6 +6,9 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User; 
+use App\Models\ProductVariant;
+use App\Models\Color;
+use App\Models\Size;
 use App\Services\AnalyticsEventService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -20,10 +23,8 @@ class OrderService
         $staff = User::where('role', 'staff')
             ->where('is_active', true)
             ->withCount(['assignedOrders as active_orders_count' => function ($query) {
-                // Count only orders that require action (pending or processing)
                 $query->whereIn('order_status', ['pending', 'processing']);
             }])
-            // Order by lowest count, then randomize if there is a tie
             ->orderBy('active_orders_count', 'asc')
             ->inRandomOrder()
             ->first();
@@ -32,20 +33,65 @@ class OrderService
     }
 
     /**
+     * Public helper to restore or deduct inventory cleanly.
+     * Moved to public scope to enforce DRY principle across controllers.
+     */
+    public function adjustInventory($productId, $colorName, $sizeName, $quantity, $action)
+    {
+        $product = Product::find($productId);
+        if (!$product) return;
+
+        $hasVariation = $colorName || $sizeName;
+        $variant = null;
+
+        if ($hasVariation) {
+            $variantQuery = ProductVariant::where('product_id', $product->id);
+            
+            if ($colorName) {
+                $color = Color::where('name', $colorName)->first();
+                if ($color) $variantQuery->where('color_id', $color->id);
+                else $variantQuery->whereNull('color_id');
+            } else {
+                $variantQuery->whereNull('color_id');
+            }
+
+            if ($sizeName) {
+                $size = Size::where('name', $sizeName)->first();
+                if ($size) $variantQuery->where('size_id', $size->id);
+                else $variantQuery->whereNull('size_id');
+            } else {
+                $variantQuery->whereNull('size_id');
+            }
+
+            $variant = $variantQuery->first();
+        }
+
+        if ($action === 'restore') {
+            if ($variant) {
+                $variant->increment('stock_quantity', $quantity);
+            } else {
+                $product->increment('stock_quantity', $quantity);
+            }
+        } elseif ($action === 'deduct') {
+            if ($variant) {
+                $variant->decrement('stock_quantity', $quantity);
+            } else {
+                $product->decrement('stock_quantity', $quantity);
+            }
+        }
+    }
+
+    /**
      * Core logic to create a manual order.
      */
     public function createOrder(array $data)
     {
         return DB::transaction(function () use ($data) {
-            
-            // 1. Calculate subtotal securely using the final discounted price for each product
             $subtotal = 0;
             $processedItems = [];
             
             foreach ($data['items'] as $item) {
                 $product = Product::find($item['product_id']);
-                
-                // Enforce the discounted price
                 $price = $product ? (float) $product->final_price : (float) $item['price'];
                 
                 $subtotal += $price * $item['quantity'];
@@ -58,7 +104,6 @@ class OrderService
             $shippingCharge = isset($data['shipping_charge']) ? (float) $data['shipping_charge'] : 0;
             $totalAmount = $subtotal + $shippingCharge;
 
-            // --- STRICT SEQUENTIAL ORDER NUMBER GENERATION ---
             $year = date('Y');
             
             $lastOrder = Order::whereYear('created_at', $year)
@@ -67,16 +112,9 @@ class OrderService
                 ->orderBy('id', 'desc')
                 ->first();
 
-            if ($lastOrder && preg_match('/-(\d+)$/', $lastOrder->order_number, $matches)) {
-                $sequence = (int) $matches[1] + 1;
-            } else {
-                $sequence = 1;
-            }
-
+            $sequence = ($lastOrder && preg_match('/-(\d+)$/', $lastOrder->order_number, $matches)) ? (int) $matches[1] + 1 : 1;
             $orderNumber = 'ORD-' . $year . '-' . str_pad($sequence, 6, '0', STR_PAD_LEFT);
-            // --------------------------------------------------
 
-            // Format notes to include the shipping charge
             $notes = $data['notes'] ?? '';
             if ($shippingCharge > 0 && !str_contains($notes, 'Shipping Charge')) {
                 $prefix = "Shipping Charge: ৳{$shippingCharge}";
@@ -109,7 +147,6 @@ class OrderService
             $analyticsService = app(AnalyticsEventService::class);
 
             foreach ($processedItems as $item) {
-                // Use the pre-fetched product model and discounted price
                 $product = $item['product_model'];
                 $unitCost = $product ? (float) $product->cost_price : 0; 
                 $price = $item['calculated_price'];
@@ -124,7 +161,8 @@ class OrderService
                     'size'       => $item['size'] ?? null,
                 ]);
 
-                // Instant analytics update with Gross Margin support using the correct discounted price
+                $this->adjustInventory($item['product_id'], $item['color'] ?? null, $item['size'] ?? null, $quantity, 'deduct');
+
                 $analyticsService->logEvent($item['product_id'], 'purchase', null, [
                     'quantity'     => $quantity,
                     'revenue'      => $price * $quantity,
@@ -146,9 +184,7 @@ class OrderService
             $newSubtotal = 0;
             $processedItems = [];
 
-            // 1. Calculate new subtotal using the final discounted price
             foreach ($data['items'] as $itemData) {
-                // Ensure we get the product ID even if modifying an existing order item
                 $productId = $itemData['product_id'] ?? null;
                 if (!$productId && isset($itemData['id'])) {
                     $existingItem = OrderItem::find($itemData['id']);
@@ -210,7 +246,8 @@ class OrderService
                 if (isset($itemData['id']) && in_array($itemData['id'], $existingItemIds)) {
                     $item = OrderItem::find($itemData['id']);
                     
-                    // Update item ensuring the correct discounted price is used
+                    $this->adjustInventory($item->product_id, $item->color, $item->size, $item->quantity, 'restore');
+
                     $item->update([
                         'quantity' => $quantity,
                         'price'    => $price,
@@ -218,21 +255,24 @@ class OrderService
                         'size'     => $itemData['size'] ?? null,
                     ]);
                     $updatedItemIds[] = $item->id;
+
+                    $this->adjustInventory($item->product_id, $item->color, $item->size, $quantity, 'deduct');
+
                 } else {
-                    // New item added during order update
                     $unitCost = $product ? (float) $product->cost_price : 0;
 
                     $newItem = $order->items()->create([
                         'product_id' => $itemData['product_id'],
                         'quantity'   => $quantity,
                         'price'      => $price,
-                        'unit_cost'  => $unitCost, // Snapshotting cost
+                        'unit_cost'  => $unitCost,
                         'color'      => $itemData['color'] ?? null,
                         'size'       => $itemData['size'] ?? null,
                     ]);
                     $updatedItemIds[] = $newItem->id;
 
-                    // Log purchase analytics for the added item
+                    $this->adjustInventory($newItem->product_id, $newItem->color, $newItem->size, $quantity, 'deduct');
+
                     $analyticsService->logEvent($itemData['product_id'], 'purchase', null, [
                         'quantity'     => $quantity,
                         'revenue'      => $price * $quantity,
@@ -241,12 +281,12 @@ class OrderService
                 }
             }
 
-            // Handle items removed from the order during update
             $removedItemIds = array_diff($existingItemIds, $updatedItemIds);
             if (!empty($removedItemIds)) {
                 $removedItems = OrderItem::whereIn('id', $removedItemIds)->get();
                 foreach ($removedItems as $rItem) {
-                    // Deduct from analytics using the snapshot data stored in unit_cost
+                    $this->adjustInventory($rItem->product_id, $rItem->color, $rItem->size, $rItem->quantity, 'restore');
+
                     $analyticsService->logEvent($rItem->product_id, 'cancel_purchase', null, [
                         'quantity'     => $rItem->quantity,
                         'revenue'      => $rItem->price * $rItem->quantity,

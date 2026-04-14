@@ -224,7 +224,7 @@ export default function ShowGeneral({ product, relatedProducts = [] }) {
       ...(isBuyNow && { action: 'buy_now' }),
     }, {
       preserveScroll: true,
-      preserveState: true,
+      preserveState: !isBuyNow,
       onSuccess: () => {
         if (isBuyNow) {
           // Internal Tracking Logic (Navigation handled by Laravel Redirect Native response)

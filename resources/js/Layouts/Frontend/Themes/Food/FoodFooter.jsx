@@ -56,10 +56,10 @@ export default function FoodFooter() {
                                 <img src={`/storage/${s.site_logo}`} alt={s.site_name} className="h-12 w-auto object-contain" />
                             ) : (
                                 <div className="flex items-center gap-2">
-                                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: '#f8f9fa', border: '2px solid #ea580c' }}>
+                                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: '#f8f9fa', border: '2px solid #000000' }}>
                                         <span style={{ color: '#01201d' }}>🌿</span>
                                     </div>
-                                    <span className="text-xl font-bold tracking-tight text-[#ea580c] leading-none">
+                                    <span className="text-xl font-bold tracking-tight text-black leading-none">
                                         GHORER<br/><span className="text-[#01201d]">BAZAR</span>
                                     </span>
                                 </div>
@@ -78,13 +78,13 @@ export default function FoodFooter() {
                                 </div>
                             )}
                             {s.site_phone && (
-                                <a href={`tel:${s.site_phone}`} className="flex items-center gap-3 hover:text-[#ea580c] transition-colors">
+                                <a href={`tel:${s.site_phone}`} className="flex items-center gap-3 hover:text-black transition-colors">
                                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                                     <span>{s.site_phone}</span>
                                 </a>
                             )}
                             {s.site_email && (
-                                <a href={`mailto:${s.site_email}`} className="flex items-center gap-3 hover:text-[#ea580c] transition-colors">
+                                <a href={`mailto:${s.site_email}`} className="flex items-center gap-3 hover:text-black transition-colors">
                                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                                     <span>{s.site_email}</span>
                                 </a>
@@ -102,7 +102,7 @@ export default function FoodFooter() {
                                 };
                                 return (
                                     <a key={social} href={url} target="_blank" rel="noreferrer" aria-label={social}
-                                        className="w-8 h-8 rounded-full flex items-center justify-center bg-orange-50 text-[#ea580c] hover:bg-[#ea580c] hover:text-white transition-colors">
+                                        className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 text-black hover:bg-black hover:text-white transition-colors">
                                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">{icons[social]}</svg>
                                     </a>
                                 );
@@ -114,14 +114,14 @@ export default function FoodFooter() {
                             <p className="text-[14px] text-gray-700 mb-3">Download App on Mobile :</p>
                             <div className="flex gap-3">
                                 {/* Placeholder App Store buttons - Use real images if available */}
-                                <div className="bg-gray-800 text-white rounded-lg px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-gray-700 transition">
+                                <div className="bg-gray-800 text-white rounded-lg px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-black transition">
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M3 20.5v-17c0-.83.67-1.5 1.5-1.5h15c.83 0 1.5.67 1.5 1.5v17c0 .83-.67 1.5-1.5 1.5h-15c-.83 0-1.5-.67-1.5-1.5zm11.5-1.5h4v-1h-4v1zm-2-12h2v-2h-2v2zm0 4h2v-2h-2v2zm0 4h2v-2h-2v2z"/></svg>
                                     <div className="flex flex-col">
                                         <span className="text-[9px] uppercase leading-none">Get it on</span>
                                         <span className="text-[13px] font-bold leading-none">Google Play</span>
                                     </div>
                                 </div>
-                                <div className="bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition">
+                                <div className="bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-gray-200 transition">
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.19 2.31-.88 3.5-.84 1.5.06 2.89.69 3.73 1.9-3.2 1.92-2.6 6.47.66 7.78-.71 1.76-1.78 3.65-2.97 3.33zM13.03 7.27c-.1-2.85 2.34-5.26 5.1-5.27.18 3.12-2.73 5.37-5.1 5.27z"/></svg>
                                     <div className="flex flex-col">
                                         <span className="text-[9px] uppercase leading-none">Download on the</span>
@@ -139,7 +139,7 @@ export default function FoodFooter() {
                             <ul className="space-y-3">
                                 {infoLinks.map((link) => (
                                     <li key={link.label}>
-                                        <Link href={link.href} className="text-[14px] text-gray-500 hover:text-[#ea580c] transition-colors">
+                                        <Link href={link.href} className="text-[14px] text-gray-500 hover:text-black transition-colors">
                                             {link.label}
                                         </Link>
                                     </li>
@@ -152,7 +152,7 @@ export default function FoodFooter() {
                             <ul className="space-y-3">
                                 {shopByLinks.map((link) => (
                                     <li key={link.label}>
-                                        <Link href={link.href} className="text-[14px] text-gray-500 hover:text-[#ea580c] transition-colors">
+                                        <Link href={link.href} className="text-[14px] text-gray-500 hover:text-black transition-colors">
                                             {link.label}
                                         </Link>
                                     </li>
@@ -165,7 +165,7 @@ export default function FoodFooter() {
                             <ul className="space-y-3">
                                 {supportLinks.map((link) => (
                                     <li key={link.label}>
-                                        <Link href={link.href} className="text-[14px] text-gray-500 hover:text-[#ea580c] transition-colors">
+                                        <Link href={link.href} className="text-[14px] text-gray-500 hover:text-black transition-colors">
                                             {link.label}
                                         </Link>
                                     </li>
@@ -178,7 +178,7 @@ export default function FoodFooter() {
                             <ul className="space-y-3">
                                 {policyLinks.map((link) => (
                                     <li key={link.label}>
-                                        <Link href={link.href} className="text-[14px] text-gray-500 hover:text-[#ea580c] transition-colors">
+                                        <Link href={link.href} className="text-[14px] text-gray-500 hover:text-black transition-colors">
                                             {link.label}
                                         </Link>
                                     </li>
@@ -191,10 +191,29 @@ export default function FoodFooter() {
             </div>
             
             {/* Scroll to Top Arrow (Matching Image) */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 flex justify-end">
-                <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="w-10 h-10 rounded-full border border-[#ea580c] text-[#ea580c] flex items-center justify-center hover:bg-[#ea580c] hover:text-white transition-colors">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4 flex justify-end">
+                <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="w-10 h-10 rounded-full border border-black text-black flex items-center justify-center hover:bg-black hover:text-white transition-colors">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" /></svg>
                 </button>
+            </div>
+
+            {/* Bottom Copyright & Payment Navigation Bar */}
+            <div className="border-t border-gray-200 py-6 bg-gray-50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="text-[14px] text-gray-500 text-center md:text-left">
+                        &copy; {new Date().getFullYear()} {s.site_name || 'Ghorer Bazar'}. All rights reserved.
+                    </div>
+                    
+                    {/* Payment Gateways */}
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                        {/* Note: Update the src path to your actual payment icons located in your public/assets directory */}
+                        <img src="/assets/images/payments/bkash.png" alt="bKash" className="h-8 w-auto object-contain bg-white border border-gray-200 rounded px-2 py-1 shadow-sm" />
+                        <img src="/assets/images/payments/nagad.png" alt="Nagad" className="h-8 w-auto object-contain bg-white border border-gray-200 rounded px-2 py-1 shadow-sm" />
+                        <img src="/assets/images/payments/mastercard.png" alt="Mastercard" className="h-8 w-auto object-contain bg-white border border-gray-200 rounded px-2 py-1 shadow-sm" />
+                        <img src="/assets/images/payments/visa.png" alt="Visa" className="h-8 w-auto object-contain bg-white border border-gray-200 rounded px-2 py-1 shadow-sm" />
+                        <img src="/assets/images/payments/amex.png" alt="Amex" className="h-8 w-auto object-contain bg-white border border-gray-200 rounded px-2 py-1 shadow-sm" />
+                    </div>
+                </div>
             </div>
         </footer>
     );

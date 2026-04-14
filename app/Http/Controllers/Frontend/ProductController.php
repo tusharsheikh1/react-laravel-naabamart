@@ -82,30 +82,30 @@ class ProductController extends Controller
             'price_asc' => $query->orderBy('price', 'asc'),
             'price_desc' => $query->orderBy('price', 'desc'),
             'oldest' => $query->oldest(),
-            default => $query->latest(), // 'latest' is the default
+            default => $query->latest(),
         };
 
         $products = $query->paginate(12)->withQueryString();
-        
+
         // Fetch data for sidebar
         $categories = Category::whereNull('parent_id')->withCount('products')->get();
         $brands = Brand::withCount('products')->get();
         $authors = Author::withCount('products')->get();
         $publications = Publication::withCount('products')->get();
-        
-        // Colors and Sizes (Standard fetch to avoid complex pivot counting crashes)
+
+        // Colors and Sizes
         $colors = Color::all();
         $sizes = Size::all();
 
         return Inertia::render('Frontend/Products/Index', [
-            'products' => $products,
-            'categories' => $categories,
-            'brands' => $brands,
-            'authors' => $authors,
+            'products'     => $products,
+            'categories'   => $categories,
+            'brands'       => $brands,
+            'authors'      => $authors,
             'publications' => $publications,
-            'colors' => $colors,
-            'sizes' => $sizes,
-            'filters' => $request->only(['category', 'brand', 'author', 'publication', 'color', 'size', 'search', 'min_price', 'max_price', 'sort']),
+            'colors'       => $colors,
+            'sizes'        => $sizes,
+            'filters'      => $request->only(['category', 'brand', 'author', 'publication', 'color', 'size', 'search', 'min_price', 'max_price', 'sort']),
         ]);
     }
 
@@ -116,8 +116,7 @@ class ProductController extends Controller
             ->firstOrFail();
 
         $categoryIds = $product->categories->pluck('id');
-        
-        // Increased the take() limit from 4 to 6 so it populates the new sidebar perfectly
+
         $relatedProducts = Product::whereHas('categories', function ($q) use ($categoryIds) {
             $q->whereIn('categories.id', $categoryIds);
         })->where('id', '!=', $product->id)->take(6)->get();
@@ -125,15 +124,21 @@ class ProductController extends Controller
         // Fetch the admin setting for the general layout (fallback to 'ShowGeneral' if null)
         $generalLayout = Setting::where('key', 'general_product_layout')->value('value') ?: 'ShowGeneral';
 
+        // Whitelist of valid layout values to prevent path traversal
+        $allowedLayouts = ['ShowGeneral', 'ShowFood', 'ShowFashion', 'ShowGadget'];
+        if (!in_array($generalLayout, $allowedLayouts)) {
+            $generalLayout = 'ShowGeneral';
+        }
+
         // Dynamically select the Inertia view based on product type
         $view = match ($product->type) {
-            'book' => 'Frontend/Products/ShowBook',
+            'book'    => 'Frontend/Products/ShowBook',
             'digital' => 'Frontend/Products/ShowDigital',
-            default => 'Frontend/Products/' . $generalLayout, // Dynamic fallback based on admin settings
+            default   => 'Frontend/Products/' . $generalLayout,
         };
 
         return Inertia::render($view, [
-            'product' => $product,
+            'product'         => $product,
             'relatedProducts' => $relatedProducts,
         ]);
     }

@@ -1,176 +1,161 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from '@inertiajs/react';
 
-/**
- * GadgetHeroSlider
- * Aesthetic: Dark tech / cyberpunk showroom.
- * Jet black + electric cyan/lime accents, monospace type, animated scan-line,
- * spec-sheet data overlays, sharp geometric transitions.
- *
- * Props:
- *   sliders   {Array}
- *   className {string}
- */
-export default function GadgetHeroSlider({ sliders = [], className = '' }) {
+// Branded fallback image
+const FALLBACK_IMAGE = "https://oppsbd.com/uploads/slider/2025-10-27-68ffb0ce9823a.png";
+
+export default function GadgetHeroSlider({ sliders = [] }) {
     const [current, setCurrent] = useState(0);
-    const [glitch, setGlitch]   = useState(false);
-    const timerRef              = useRef(null);
-    const count                 = sliders.length;
+    const [isAnimating, setIsAnimating] = useState(false);
 
-    const go = useCallback((idx) => {
-        setGlitch(true);
-        setTimeout(() => {
-            setCurrent(idx);
-            setGlitch(false);
-        }, 180);
-    }, []);
+    const items = sliders.length > 0 ? sliders : [
+        { 
+            image: FALLBACK_IMAGE, 
+            title: "New Collection", 
+            subtitle: "Season Essentials", 
+            link: "/shop" 
+        }
+    ];
 
-    const goNext = useCallback(() => go((current + 1) % count), [current, count, go]);
-    const goPrev = useCallback(() => go((current - 1 + count) % count), [current, count, go]);
+    const nextSlide = useCallback(() => {
+        if (isAnimating) return;
+        setIsAnimating(true);
+        setCurrent((prev) => (prev === items.length - 1 ? 0 : prev + 1));
+        setTimeout(() => setIsAnimating(false), 1000);
+    }, [items.length, isAnimating]);
 
-    const resetTimer = useCallback(() => {
-        clearInterval(timerRef.current);
-        if (count > 1) timerRef.current = setInterval(goNext, 5500);
-    }, [goNext, count]);
+    const prevSlide = () => {
+        if (isAnimating) return;
+        setIsAnimating(true);
+        setCurrent((prev) => (prev === 0 ? items.length - 1 : prev - 1));
+        setTimeout(() => setIsAnimating(false), 1000);
+    };
 
     useEffect(() => {
-        resetTimer();
-        return () => clearInterval(timerRef.current);
-    }, [resetTimer]);
+        const timer = setInterval(nextSlide, 6000);
+        return () => clearInterval(timer);
+    }, [nextSlide]);
 
-    if (!count) return null;
-    const slide = sliders[current];
+    const getImageUrl = (path) => {
+        if (!path) return FALLBACK_IMAGE;
+        if (path.startsWith('http')) return path;
+        return `/storage/${path}`;
+    };
 
     return (
-        <div
-            className={`relative w-full overflow-hidden rounded-none sm:rounded-lg ${className}`}
-            style={{ background: '#050810', fontFamily: "'Courier New', 'Lucida Console', monospace" }}
-        >
-            {/* Scan-line overlay */}
-            <div className="absolute inset-0 z-20 pointer-events-none"
-                style={{
-                    backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,200,0.015) 2px, rgba(0,255,200,0.015) 4px)',
-                }} />
+        /* BEST PRACTICE HEIGHTS: 
+           Mobile: 60vh - Tall enough for fashion portraits, short enough to show next section.
+           Desktop: 85vh - Immersive luxury editorial feel.
+        */
+        <section className="relative w-full h-[60vh] md:h-[85vh] overflow-hidden bg-gray-100">
+            
+            {items.map((slide, index) => {
+                const hasText = !!(slide.title || slide.subtitle);
 
-            {/* Corner brackets */}
-            {[
-                'top-3 left-3 border-t-2 border-l-2',
-                'top-3 right-3 border-t-2 border-r-2',
-                'bottom-3 left-3 border-b-2 border-l-2',
-                'bottom-3 right-3 border-b-2 border-r-2',
-            ].map((cls, i) => (
-                <div key={i} className={`absolute z-30 w-5 h-5 border-cyan-400/80 pointer-events-none ${cls}`} />
-            ))}
-
-            {/* Image */}
-            <div
-                className="relative transition-all duration-200"
-                style={{ filter: glitch ? 'brightness(2) saturate(0) blur(1px)' : 'none' }}
-            >
-                <img
-                    src={`/storage/${slide.image}`}
-                    alt={slide.title || ''}
-                    className={`w-full object-cover object-center block ${slide.mobile_image ? 'hidden md:block' : ''}`}
-                    style={{ height: 'clamp(180px, 40vw, 460px)' }}
-                />
-                {slide.mobile_image && (
-                    <img
-                        src={`/storage/${slide.mobile_image}`}
-                        alt={slide.title || ''}
-                        className="w-full object-cover object-center md:hidden"
-                        style={{ height: 'clamp(180px, 55vw, 360px)' }}
-                    />
-                )}
-
-                {/* Dark overlay */}
-                <div className="absolute inset-0"
-                    style={{ background: 'linear-gradient(105deg, rgba(5,8,16,0.90) 0%, rgba(5,8,16,0.5) 50%, rgba(5,8,16,0.15) 100%)' }} />
-                <div className="absolute inset-0"
-                    style={{ background: 'linear-gradient(to top, rgba(5,8,16,0.95) 0%, transparent 45%)' }} />
-            </div>
-
-            {/* Content */}
-            <div className="absolute inset-0 z-10 flex flex-col justify-end px-5 sm:px-10 pb-8 sm:pb-12">
-
-                {/* Slide index */}
-                <div className="hidden sm:flex items-center gap-3 mb-3">
-                    <span className="text-cyan-400 text-xs tracking-[0.3em]">
-                        SYS:{String(current + 1).padStart(2, '0')}/{String(count).padStart(2, '0')}
-                    </span>
-                    <div className="flex-1 max-w-16 h-px" style={{ background: 'linear-gradient(to right, #00ffcc60, transparent)' }} />
-                    <span className="text-cyan-900 text-xs">■■■■□□</span>
-                </div>
-
-                {slide.title && (
-                    <h2
-                        className="font-bold leading-none tracking-tight"
-                        style={{
-                            fontSize: 'clamp(1.2rem, 4vw, 3rem)',
-                            color: glitch ? '#00ffcc' : '#f0f9ff',
-                            textShadow: '0 0 30px rgba(0,255,200,0.3)',
-                            letterSpacing: '-0.03em',
-                        }}
+                return (
+                    <div
+                        key={index}
+                        className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                            index === current ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                        }`}
                     >
-                        {slide.title}
-                    </h2>
-                )}
+                        <div className="relative w-full h-full overflow-hidden">
+                            <img
+                                src={getImageUrl(slide.image)}
+                                alt={slide.title || 'Hero Slide'}
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = FALLBACK_IMAGE;
+                                }}
+                                className={`w-full h-full object-cover object-center transition-transform duration-[6000ms] ease-out ${
+                                    index === current && hasText ? 'scale-110' : 'scale-100'
+                                }`}
+                            />
+                            
+                            {/* Overlay is applied only if text is present */}
+                            {hasText && (
+                                <div className="absolute inset-0 bg-black/20" />
+                            )}
+                        </div>
 
-                {slide.subtitle && (
-                    <p className="text-cyan-600 mt-2 text-xs sm:text-sm max-w-md hidden sm:block tracking-wider">
-                        &gt; {slide.subtitle}
-                    </p>
-                )}
+                        {/* Text Overlay Section */}
+                        {hasText && (
+                            <div className="absolute inset-0 flex items-center justify-center text-center">
+                                <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+                                    <div className="max-w-3xl mx-auto text-white">
+                                        
+                                        {/* Subtitle */}
+                                        {slide.subtitle && (
+                                            <p className={`text-[10px] md:text-xs font-bold tracking-[0.4em] uppercase mb-4 transition-all duration-700 delay-300 ${
+                                                index === current ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+                                            }`}>
+                                                {slide.subtitle}
+                                            </p>
+                                        )}
 
-                <div className="flex items-center gap-4 mt-4 hidden sm:flex">
-                    {slide.link && (
-                        <Link href={slide.link}
-                            className="inline-flex items-center gap-2 px-5 py-2 text-xs tracking-widest uppercase font-bold transition-all duration-200 hover:shadow-[0_0_20px_rgba(0,255,200,0.5)]"
-                            style={{
-                                background: 'linear-gradient(135deg, #00ffcc, #0080ff)',
-                                color: '#050810',
-                                clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-                            }}>
-                            View Specs
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
-                            </svg>
-                        </Link>
-                    )}
-                </div>
+                                        {/* Title */}
+                                        {slide.title && (
+                                            <h2 className={`text-3xl md:text-7xl font-serif leading-tight mb-8 transition-all duration-1000 delay-500 ${
+                                                index === current ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+                                            }`}>
+                                                {slide.title}
+                                            </h2>
+                                        )}
+
+                                        {/* Explore Button: Only shown if both Title and Subtitle exist */}
+                                        {slide.title && slide.subtitle && (
+                                            <div className={`transition-all duration-700 delay-700 ${
+                                                index === current ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+                                            }`}>
+                                                <Link
+                                                    href={slide.link || route('shop')}
+                                                    className="inline-block bg-white text-black px-10 md:px-16 py-3 md:py-4 text-[10px] md:text-xs font-bold tracking-[0.2em] uppercase hover:bg-black hover:text-white transition-all duration-300 shadow-xl"
+                                                >
+                                                    Explore Collection
+                                                </Link>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+
+            {/* Desktop Navigation Arrows */}
+            <div className="hidden md:flex absolute bottom-12 right-12 z-20 items-center gap-4">
+                <button 
+                    onClick={prevSlide}
+                    className="p-4 border border-white/30 text-white hover:bg-white hover:text-black transition-all duration-300"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <button 
+                    onClick={nextSlide}
+                    className="p-4 border border-white/30 text-white hover:bg-white hover:text-black transition-all duration-300"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
             </div>
 
-            {/* Progress bar */}
-            {count > 1 && (
-                <div className="absolute bottom-0 left-0 right-0 z-30 flex">
-                    {sliders.map((_, i) => (
-                        <button
-                            key={i}
-                            onClick={() => { go(i); resetTimer(); }}
-                            className={`h-0.5 flex-1 transition-all duration-300 mx-0.5 ${i === current ? 'bg-cyan-400' : 'bg-cyan-950 hover:bg-cyan-800'}`}
-                        />
-                    ))}
-                </div>
-            )}
+            {/* Slide Progress Dots */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-3">
+                {items.map((_, i) => (
+                    <button
+                        key={i}
+                        onClick={() => !isAnimating && setCurrent(i)}
+                        className={`transition-all duration-500 ${
+                            i === current ? 'w-8 bg-white' : 'w-2 bg-white/40'
+                        } h-[2px]`}
+                    />
+                ))}
+            </div>
 
-            {/* Arrows */}
-            {count > 1 && (
-                <>
-                    <button onClick={() => { goPrev(); resetTimer(); }}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 flex items-center justify-center border border-cyan-800 hover:border-cyan-400 text-cyan-600 hover:text-cyan-400 transition-all"
-                        style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))', background: 'rgba(5,8,16,0.8)' }}>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                        </svg>
-                    </button>
-                    <button onClick={() => { goNext(); resetTimer(); }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 flex items-center justify-center border border-cyan-800 hover:border-cyan-400 text-cyan-600 hover:text-cyan-400 transition-all"
-                        style={{ clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)', background: 'rgba(5,8,16,0.8)' }}>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                        </svg>
-                    </button>
-                </>
-            )}
-        </div>
+        </section>
     );
 }

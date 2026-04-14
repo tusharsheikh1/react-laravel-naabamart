@@ -35,6 +35,7 @@ use App\Http\Controllers\Frontend\ProductController as FrontendProductController
 use App\Http\Controllers\Frontend\CategoryController as FrontendCategoryController;
 use App\Http\Controllers\Frontend\CartController;
 use App\Http\Controllers\Frontend\CheckoutController;
+use App\Http\Controllers\Frontend\PaymentController; // <-- NEW: Added Payment Controller
 use App\Http\Controllers\Frontend\OrderController as FrontendOrderController;
 use App\Http\Controllers\Frontend\AnalyticsController as FrontendAnalyticsController;
 use App\Http\Controllers\Frontend\LandingPageController as FrontendLandingPageController;
@@ -64,6 +65,13 @@ Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.s
 Route::post('/checkout/save-draft', [CheckoutController::class, 'saveDraft'])->name('checkout.draft');
 Route::get('/checkout/success/{order_id}', [CheckoutController::class, 'success'])->name('checkout.success');
 Route::get('/checkout/invoice/{order_id}', [CheckoutController::class, 'invoice'])->name('checkout.invoice');
+
+// --- NEW: Payment Gateway Callbacks (SSLCommerz) ---
+Route::post('/payment/success', [PaymentController::class, 'success'])->name('payment.success');
+Route::post('/payment/fail', [PaymentController::class, 'fail'])->name('payment.fail');
+Route::post('/payment/cancel', [PaymentController::class, 'cancel'])->name('payment.cancel');
+Route::post('/payment/ipn', [PaymentController::class, 'ipn'])->name('payment.ipn');
+// ---------------------------------------------------
 
 // Dedicated landing-page checkout — bypasses cart session entirely.
 Route::post('/lp/checkout', [CheckoutController::class, 'landingPageStore'])->name('landing_page.checkout');

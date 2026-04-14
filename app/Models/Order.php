@@ -17,7 +17,8 @@ class Order extends Model
         'shipping_area',    
         'total_amount', 
         'payment_method', 
-        'payment_status', 
+        'payment_status',
+        'transaction_id', // NEW: Added for SSLCommerz / Online Payments 
         'order_status', 
         'shipping_address', 
         'notes',

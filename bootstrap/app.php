@@ -16,9 +16,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-        // --- ADDED: Exclude the analytics tracking route from CSRF verification ---
+        // --- UPDATED: Exclude analytics tracking AND SSLCommerz routes from CSRF verification ---
         $middleware->validateCsrfTokens(except: [
-            '/analytics/track'
+            '/analytics/track',
+            'payment/success',
+            'payment/fail',
+            'payment/cancel',
+            'payment/ipn',
         ]);
         // ------------------------------------------------------------------------
 
@@ -29,12 +33,12 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
-            'admin_or_staff' => \App\Http\Middleware\AdminOrStaffMiddleware::class, // Added the new middleware here
+            'admin_or_staff' => \App\Http\Middleware\AdminOrStaffMiddleware::class, 
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         
-        // --- ADDED: Catch 404 Not Found errors and render custom Inertia Page ---
+        // --- EXISTING: Catch 404 Not Found errors and render custom Inertia Page ---
         $exceptions->respond(function (Response $response, \Throwable $exception, Request $request) {
             if ($response->getStatusCode() === 404) {
                 return Inertia::render('Errors/404')
